@@ -95,3 +95,6 @@ OpenWrt 的 `e5-voice-audio` 音频服务。核心负责通用通知展示，插
 当前短信/通话仍使用系统选择的 SIM，双卡同时接收和每次选卡需要底层双卡
 事件/端口支持，尚未按 Android 的双卡待机方式实现。电话数字盘的方向键按屏幕网格
 移动：上下沿列，左右沿行；实体拨号键以独立的 `kind: "call"` 事件提供给应用。
+
+Phone 1.5 supports per-call SIM selection and source labels with the E5
+ModemManager r916 dual-voice adapter. The selected data SIM remains independent.

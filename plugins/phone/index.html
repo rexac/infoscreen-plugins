@@ -9,14 +9,20 @@
 <body>
 <header class="heading"><strong data-text="phone">电话</strong><span id="connection" class="connection" aria-live="polite"></span></header>
 <div id="feedback" class="feedback" role="status" hidden></div>
+<div id="call-choices" class="call-choices" hidden></div>
 <section id="call-card" class="call-card" hidden>
  <span id="call-state" class="call-state"></span>
  <div class="avatar call-avatar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h4l2 5-3 2c1 3 3 5 6 6l2-3 5 2v4c0 1-1 2-2 2C10 21 3 14 3 5c0-1 1-2 3-2z"/></svg></div>
  <strong id="call-name"></strong><span id="call-number"></span><span id="call-duration"></span>
  <div id="audio-actions" class="audio-actions"><button id="speaker" data-text="speaker" aria-pressed="false">扬声器</button><button id="mute" data-text="mute" aria-pressed="false">静音</button></div>
+ <div id="call-sim" class="call-sim"></div>
  <div class="call-actions"><button id="accept" class="dial" data-text="answer">接听</button><button id="hangup" class="end" data-text="hangup">挂断</button></div>
 </section>
 <section id="dialer" class="dialer" aria-label="拨号盘">
+ <div class="sim-selector" role="group" aria-label="发送呼叫 SIM">
+  <button id="sim-1" data-sim="0" aria-pressed="true">SIM1</button>
+  <button id="sim-2" data-sim="1" aria-pressed="false">SIM2</button>
+ </div>
  <div class="number-area"><span id="number-label" data-text="enterNumber">输入电话号码</span><output id="number"></output></div>
  <div id="keypad" class="keypad">
   <button data-key="1"><b>1</b><small>&nbsp;</small></button><button data-key="2"><b>2</b><small>ABC</small></button><button data-key="3"><b>3</b><small>DEF</small></button>

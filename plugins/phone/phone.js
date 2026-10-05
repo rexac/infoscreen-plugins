@@ -21,6 +21,7 @@ const LIVE = new Set(['dialing','ringing-out','ringing-in','active','held','wait
 let number='', contacts=[], calls=[], pending=null, reading=false, feedback=null;
 let contactsSignature='', deleteNumber=null, activeId=null, activeSince=null, zeroTimer=null, zeroHeld=false;
 let awaitingId=null, awaitingSince=0;
+let selectedCard=0, simPicked=false, selectedCall=null;
 let audio={available:false,active:false,speaker:false,muted:false}, audioFeedback=false;
 function translate() {
  document.querySelectorAll('[data-text]').forEach(el=>el.textContent=t(el.dataset.text));
@@ -42,7 +43,7 @@ function setNumber(value) {
  $('number').scrollLeft=$('number').scrollWidth;
  if (!pending) showFeedback(null);
 }
-function current() { return calls.find(c=>c.state==='ringing-in'||c.state==='waiting') || calls[0] || null; }
+function current() { return calls.find(c=>c.id===selectedCall) || calls.find(c=>c.state==='ringing-in'||c.state==='waiting') || calls[0] || null; }
 function incoming(c) { return c?.state==='ringing-in'||c?.state==='waiting'; }
 function renderContacts() {
  const signature=JSON.stringify(contacts);
@@ -68,11 +69,14 @@ function renderContacts() {
 }
 function render() {
  const c=current();
+ const choices=$('call-choices');choices.textContent='';choices.hidden=calls.length<2;
+ for(const candidate of calls){const button=document.createElement('button');button.textContent=[candidate.sim,t(candidate.state)].filter(Boolean).join(' · ');button.setAttribute('aria-pressed',String(candidate.id===c?.id));button.addEventListener('click',()=>{selectedCall=candidate.id;render();});choices.append(button);}
  $('call-card').hidden=!c; $('dialer').hidden=!!c;
  $('contacts-panel').hidden=!!c;
  $('connection').textContent=c?t(c.state):pending?t('dialing'):t('idle');
  if(c){
   $('call-state').textContent=t(c.state);
+  $('call-sim').textContent=c.sim || '';
   const contact=contacts.find(x=>x.number===c.number);
   $('call-name').textContent=contact?.name||c.number||t('phone');
   $('call-number').textContent=contact?.name?c.number:'';
@@ -82,10 +86,12 @@ function render() {
   }else{activeId=null;activeSince=null;}
  }else{activeId=null;activeSince=null;}
  $('call-duration').textContent=activeSince?duration(Date.now()-activeSince):'';
+ document.querySelectorAll('[data-sim]').forEach(button=>{button.setAttribute('aria-pressed',String(+button.dataset.sim===selectedCard));button.disabled=!!pending;});
  $('dial').disabled=!!pending;
  $('dial').querySelector('span').textContent=pending==='call'?t('dialing'):t('dial');
  $('hangup').disabled=!!pending; $('accept').disabled=!!pending;
- $('speaker').disabled=!!pending||!audio.available; $('mute').disabled=!!pending||!audio.available;
+ const differentAudio=audio.active && audio.sim && c?.sim && audio.sim!==c.sim;
+ $('speaker').disabled=!!pending||!audio.available||differentAudio; $('mute').disabled=!!pending||!audio.available||differentAudio;
  $('speaker').setAttribute('aria-pressed',String(!!audio.speaker));
  $('mute').setAttribute('aria-pressed',String(!!audio.muted));
  $('editor-save').disabled=!!pending; $('delete-confirm').disabled=!!pending;
@@ -111,6 +117,7 @@ async function read(){
  try{
   const r=await e5.api('/status');
   calls=(r.calls||[]).filter(c=>LIVE.has(c.state));
+  if(!simPicked && (r.sim?.card===0 || r.sim?.card===1))selectedCard=r.sim.card;
   if(r.audio){
    audio=r.audio;
    if(current()?.state==='active'&&(!audio.active||audio.error)){
@@ -141,7 +148,7 @@ async function perform(action,body){
 function dial(){
  if(pending||current())return;
  if(!/^\+?[0-9*#]{3,32}$/.test(number)){showFeedback(t('invalid'));return;}
- perform('call',{number});
+ perform('call',{number,card:selectedCard});
 }
 function openEditor(){
  if(!number){showFeedback(t('invalid'));return;}
@@ -223,6 +230,7 @@ document.querySelectorAll('[data-key]').forEach(b=>{
   b.addEventListener('pointercancel',()=>clearTimeout(zeroTimer));
  }
 });
+document.querySelectorAll('[data-sim]').forEach(button=>button.addEventListener('click',()=>{if(!pending){selectedCard=+button.dataset.sim;simPicked=true;render();}}));
 $('dial').addEventListener('click',dial);
 $('accept').addEventListener('click',()=>{const c=current();if(incoming(c))perform('answer',{id:c.id});});
 $('hangup').addEventListener('click',()=>{const c=current();if(c)perform('hangup',{id:c.id});});

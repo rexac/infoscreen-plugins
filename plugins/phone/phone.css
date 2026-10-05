@@ -15,7 +15,7 @@ svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7;
 .feedback { padding:6px 8px; border-radius:7px; background:#402229; color:#ffb0b0; font-size:11px; line-height:1.45; max-height:65px; overflow:auto; flex-shrink:0; white-space:pre-wrap; overflow-wrap:anywhere; user-select:text; }
 .feedback.info { background:#1a293a; color:#b9d4f0; }
 .dialer { flex-shrink:0; }
-.number-area { height:68px; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:5px; padding:2px 0 6px; }
+.number-area { height:56px; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:5px; padding:2px 0 6px; }
 #number-label { color:var(--dim); font-size:11px; }
 #number { width:100%; min-height:30px; line-height:30px; font-size:28px; font-weight:500; letter-spacing:1px; text-align:center; white-space:nowrap; overflow-x:auto; scrollbar-width:none; }
 #number:empty { display:none; }
@@ -65,3 +65,15 @@ svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.7;
 .sheet p { margin:0; overflow-wrap:anywhere; color:#a7b8ce; }
 @media (max-height:380px) { body { gap:4px; padding-top:5px; } .number-area { height:50px; } .keypad button { height:31px; } .keypad b { font-size:21px; line-height:23px; } .dial-actions { margin-top:5px; } }
 @media (max-height:380px) { .call-card { gap:6px; padding:3px 0; } .call-avatar { width:45px; height:45px; } #call-name { font-size:20px; } .feedback { max-height:45px; } .audio-actions button { padding:5px 14px; } }
+
+.sim-selector { display:flex; gap:8px; margin:2px 0 0; }
+.sim-selector button { flex:1; height:25px; font-size:11px; color:var(--dim); border:1px solid var(--line); background:transparent; }
+.sim-selector button[aria-pressed="true"] { color:var(--green); border-color:var(--green); background:#10271f; }
+.call-sim { font-size:12px; color:var(--green); margin:4px 0; }
+@media (max-height:360px) { .sim-selector button { height:21px; } }
+
+.call-choices { display:flex; gap:6px; flex-shrink:0; }
+.call-choices button { flex:1; padding:6px 4px; font-size:10px; color:var(--dim); }
+.call-choices button[aria-pressed="true"] { color:var(--green); border:1px solid var(--green); }
+
+@media (max-height:360px) { .number-area { height:40px; } .keypad button { height:28px; } }

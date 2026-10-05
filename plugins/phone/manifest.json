@@ -1,14 +1,14 @@
 {
 	"id": "phone",
 	"api_version": 2,
-	"version": "1.4",
+	"version": "1.5",
 	"name": {
 		"zh": "电话",
 		"en": "Phone"
 	},
 	"description": {
-		"zh": "拨号、通讯录和来电",
-		"en": "Dialer, contacts and calls"
+		"zh": "双卡拨号、通讯录和来电",
+		"en": "Dual-SIM dialer, contacts and calls"
 	},
 	"entry": "index.html",
 	"order": 5,

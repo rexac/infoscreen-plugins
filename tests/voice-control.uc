@@ -6,8 +6,8 @@ let commands = [], failure = null;
 let entries = {
  '0': { number:'10099', direction:'outgoing', state:'--' },
  '1': { number:'10099', direction:'outgoing', state:'terminated' },
- '2': { number:'10099', direction:'outgoing', state:'active' },
- '3': { number:'10099', direction:'incoming', state:'ringing-in' }
+ '2': { number:'10099', direction:'outgoing', state:'active', 'sim-slot':'1' },
+ '3': { number:'10099', direction:'incoming', state:'ringing-in', 'sim-slot':'2' }
 };
 let listkey = 'modem.voice.call';
 let ctx = {
@@ -31,6 +31,8 @@ let voice = factory(ctx);
 assert(voice.dial('10099').ok, 'dial failed');
 assert(length(commands) == 2 && match(commands[0], /--voice-create-call=/) && match(commands[1], /Call\/42.*--start/), 'create must start the same call');
 commands=[];
+assert(voice.dial('10099',1).ok && match(commands[0], /sim-slot=2/), 'selected SIM must be passed to CreateCall');
+commands=[];assert(!voice.dial('10099',2).ok && length(commands)==0, 'invalid SIM must not run a command');
 assert(!voice.dial('bad;touch /tmp/pwned').ok && length(commands) == 0, 'invalid number must not run a command');
 failure=/--voice-create-call=/;
 assert(voice.dial('10099').stage == 'create' && length(commands) == 1, 'create failure must stop before start');
@@ -46,6 +48,7 @@ for(let key in ['modem.voice.call','modem.voice.calls']) {
  listkey=key; commands=[];
  let states=voice.list().calls;
  assert(length(states)==2 && states[0].state=='active' && states[1].state=='ringing-in', 'only live calls should be shown');
+ assert(states[0].card==0 && states[1].card==1 && states[1].sim=='SIM2','call origin SIM missing');
  assert(!match(join(' ', commands), /--start|--accept|--hangup|--voice-delete-call/), 'polling must never control calls');
 }
 print('Voice control checks passed\n');

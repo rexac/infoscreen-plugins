@@ -30,7 +30,7 @@ return function(ctx) {
 			let wake = ctx.uci().get('e5-plugin-phone', 'settings', 'ring_screen') != '0';
 			return { notifications: map(filter(list, c => c.state == 'ringing-in' || c.state == 'waiting'),
 				c => ({ id: 'call-' + c.id, title: { zh: '来电', en: 'Incoming call' },
-					body: c.number, wake })) };
+					body: (c.sim ? c.sim + ' · ' : '') + c.number, wake })) };
 		},
 		'GET /status': function(req) { return { ...voice.list(), contacts: contacts(), audio: audio() }; },
 		'POST /audio': function(req) {
@@ -48,7 +48,7 @@ return function(ctx) {
 			return { ok: true };
 		},
 		'POST /call': function(req) {
-			let r = voice.dial(req.body?.number);
+			let r = voice.dial(req.body?.number, req.body?.card);
 			return r.ok ? r : fail(r, r.stage == 'validate' ? 400 : 502);
 		},
 		'POST /answer': function(req) {

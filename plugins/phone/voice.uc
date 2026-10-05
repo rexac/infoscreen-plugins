@@ -1,6 +1,7 @@
 // ModemManager owns call control. This adapter only maps its CLI operations
 // and states to the screen API; it never controls a call from a status poll.
 'use strict';
+import { readfile } from 'fs';
 
 return function(ctx) {
 	const PATH = '/org/freedesktop/ModemManager1/Call/';
@@ -17,6 +18,7 @@ return function(ctx) {
 		if (substr(s, 0, length(PATH)) == PATH) s = substr(s, length(PATH));
 		return match(s, /^[0-9]+$/) ? s : null;
 	}
+	function sim() { let card = trim(readfile('/sys/module/sipc_wwan/parameters/card') ?? '0') == '1' ? 1 : 0; return { card, name: `SIM${card + 1}` }; }
 	function list() {
 		let r = run('mmcli -J -m any --timeout=3 --voice-list-calls');
 		if (r.rc) return { calls: [], error: r.out || 'Cannot read modem calls' };
@@ -33,19 +35,24 @@ return function(ctx) {
 			// object also remains on D-Bus until explicitly deleted. Neither is live.
 			if (index(LIVE, p?.state) < 0) continue;
 			push(calls, { id, path: PATH + id, number: p.number == '--' ? '' : (p.number ?? ''),
-				state: p.state, reason: p['state-reason'], direction: p.direction });
+				state: p.state, reason: p['state-reason'], direction: p.direction,
+				card: +p['sim-slot'] == 1 ? 0 : +p['sim-slot'] == 2 ? 1 : null,
+				sim: +p['sim-slot'] > 0 ? `SIM${+p['sim-slot']}` : null });
 		}
-		return { calls, error: null };
+		return { calls, sim: sim(), error: null };
 	}
 	function result(r, stage, id) {
 		return r.rc ? { ok: false, stage, id, error: r.out || `${stage} failed (exit ${r.rc})` }
 			: { ok: true, id };
 	}
-	function dial(number) {
+	function dial(number, card) {
 		number = `${number ?? ''}`;
 		if (!match(number, /^\+?[0-9*#]{3,32}$/))
 			return { ok: false, stage: 'validate', error: 'Invalid number' };
-		let created = run(`mmcli -m any --timeout=5 --voice-create-call=${q('number=' + number)}`);
+		if (card != null && card !== 0 && card !== 1 && card !== '0' && card !== '1')
+			return { ok: false, stage: 'validate', error: 'Invalid SIM card' };
+		let properties = 'number=' + number + (card == null ? '' : ',sim-slot=' + (+card + 1));
+		let created = run(`mmcli -m any --timeout=5 --voice-create-call=${q(properties)}`);
 		if (created.rc) return result(created, 'create', null);
 		let m = match(created.out, /\/org\/freedesktop\/ModemManager1\/Call\/([0-9]+)/);
 		if (!m) return { ok: false, stage: 'create', error: 'ModemManager did not return a call ID' };
