@@ -1,6 +1,6 @@
 # 信息屏应用商店 / Info screen app store
 
-荣悦 E5 OpenWrt 信息屏（[e5-infoscreen](https://github.com/Enceka/e5-infoscreen)）的应用商店。
+荣悦 E5 OpenWrt 信息屏（[e5-infoscreen](https://github.com/Enceka/infoscreen)）的应用商店。
 屏幕上：高级 → 应用管理 → 应用商店。每次推送到 `main`，CI 检查所有应用，打包后发布到
 GitHub Pages（`https://enceka.github.io/infoscreen-plugins/index.json`），设备从那里读取。
 
@@ -41,7 +41,7 @@ stores the counts; previews do not send production events. Statistics failures n
 ## 提交一个应用 / Adding an app
 
 1. `plugins/<id>/`：`manifest.json`、页面（默认 `index.html`），需要后台时加 `backend.uc`。
-   接口见 e5-infoscreen 的 [docs/API.md](https://github.com/Enceka/e5-infoscreen/blob/main/docs/API.md)
+   接口见 e5-infoscreen 的 [docs/API.md](https://github.com/Enceka/infoscreen/blob/main/docs/API.md)
    第 5 节；`plugins/bigclock` 是个最小的例子。
 2. 本地检查：`python3 tools/check.py`，打包试试：`python3 tools/build.py`（生成 `dist/`）。
 3. 提 Pull Request；CI 通过、审阅之后合并，下一次发布就上架了。改版本时提高 `version`，
@@ -97,4 +97,7 @@ OpenWrt 的 `e5-voice-audio` 音频服务。核心负责通用通知展示，插
 移动：上下沿列，左右沿行；实体拨号键以独立的 `kind: "call"` 事件提供给应用。
 
 Phone 1.5 supports per-call SIM selection and source labels with the E5
-ModemManager r916 dual-voice adapter. The selected data SIM remains independent.
+ModemManager r917 dual-voice adapter. The selected data SIM remains independent.
+
+SIM2 下行与来电提醒已实测；SIM2 麦克风上行、来电接听音频和 30 秒持续通话尚未验证。
+选卡不会切换上网卡；已有通话时不会自动挂机或重拨。
