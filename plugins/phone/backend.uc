@@ -22,7 +22,18 @@ return function(ctx) {
 		return { available: false, active: false, speaker: false, muted: false,
 			error: 'Call audio service is not ready' };
 	}
+	function live() {
+		let a = audio(), state;
+		// One shared observer owns snapshots. Screen polls must not fork mmcli
+		// for every historical call, or queue more AT queries behind DTMF.
+		if (a.available && type(a.calls) == 'array' && time() - a.updated < 2)
+			state = { calls: a.calls, error: null };
+		else state = voice.list();
+		return { ...state, audio: a,
+			wake: ctx.uci().get('e5-plugin-phone', 'settings', 'ring_screen') != '0' };
+	}
 	return {
+		'GET /live': function(req) { return live(); },
 		'GET /notifications': function(req) {
 			let a = audio(), list;
 			if (a.available && type(a.calls) == 'array') list = a.calls;
@@ -32,7 +43,12 @@ return function(ctx) {
 				c => ({ id: 'call-' + c.id, title: { zh: '来电', en: 'Incoming call' },
 					body: (c.sim ? c.sim + ' · ' : '') + c.number, wake })) };
 		},
-		'GET /status': function(req) { return { ...voice.list(), contacts: contacts(), audio: audio() }; },
+		'GET /status': function(req) { return { ...live(), contacts: contacts(),
+			sim: { card: trim(readfile('/sys/module/sipc_wwan/parameters/card') ?? '0') == '1' ? 1 : 0 } }; },
+		'POST /dtmf': function(req) {
+			let r = voice.dtmf(req.body?.id, req.body?.tone);
+			return r.ok ? r : fail(r, r.stage == 'validate' ? 400 : 502);
+		},
 		'POST /audio': function(req) {
 			if (!audio().available) return fail({ ok: false, error: 'Call audio service is not ready' }, 503);
 			let b = req.body ?? {}, settings;
@@ -41,6 +57,16 @@ return function(ctx) {
 				if (b[key] == null) continue;
 				if (type(b[key]) != 'bool') return fail({ ok: false, error: 'Invalid audio setting' }, 400);
 				settings[key] = b[key];
+			}
+			if (b.route != null || b.speaker != null) {
+				let route = b.route ?? (b.speaker ? 'speaker' : 'receiver');
+				if (index([ 'auto', 'receiver', 'speaker', 'bluetooth' ], route) < 0)
+					return fail({ ok: false, error: 'Invalid audio route' }, 400);
+				if (route == 'bluetooth' && !audio().bluetooth?.connected)
+					return fail({ ok: false, error: 'Bluetooth headset is not connected for calls' }, 409);
+				settings.route = route;
+				let now = clock(true);
+				settings.route_updated = now[0] + now[1] / 1000000000;
 			}
 			let tmp = AUDIO + '/request.' + clock();
 			if (!writefile(tmp, sprintf('%J\n', settings)) || !rename(tmp, AUDIO + '/settings.json'))

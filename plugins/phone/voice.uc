@@ -67,5 +67,13 @@ return function(ctx) {
 			return { ok: false, stage: 'validate', error: 'Invalid call action' };
 		return result(run(`mmcli --timeout=15 -o ${q(PATH + id)} --${op}`), op, id);
 	}
-	return { list, dial, action };
+	function dtmf(id, tone) {
+		id = call_id(id);
+		if (id == null || type(tone) != 'string' || !match(tone, /^[0-9*#]$/))
+			return { ok: false, stage: 'validate', error: 'Invalid call ID or DTMF digit' };
+		// Address this exact call; ModemManager validates ACTIVE and selects its SIM.
+		// Never retry a tone: an uncertain result must not enter a digit twice.
+		return result(run(`mmcli --timeout=5 -o ${q(PATH + id)} --send-dtmf=${q(tone)}`), 'dtmf', id);
+	}
+	return { list, dial, action, dtmf };
 };

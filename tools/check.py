@@ -101,7 +101,7 @@ def check(d):
                 continue
             total += os.path.getsize(p)
             ext = os.path.splitext(n)[1].lower()
-            if ext not in TEXT | BINARY:
+            if ext not in TEXT | BINARY and n != 'LICENSE':
                 errs.append(f'{rel}: file type {ext or "(none)"} is not allowed')
                 continue
             if ext in BINARY:

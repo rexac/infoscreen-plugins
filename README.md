@@ -101,3 +101,5 @@ ModemManager r917 dual-voice adapter. The selected data SIM remains independent.
 
 SIM2 下行与来电提醒已实测；SIM2 麦克风上行、来电接听音频和 30 秒持续通话尚未验证。
 选卡不会切换上网卡；已有通话时不会自动挂机或重拨。
+
+设备适配中的电话界面与共享传输改动已合入 `plugins/phone`，来源和依赖见 [迁移说明](docs/DEVICE-INTEGRATION.md)。
