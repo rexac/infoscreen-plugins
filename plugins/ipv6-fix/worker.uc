@@ -8,7 +8,7 @@ function readjson(path) { try { return json(readfile(path) ?? 'null'); } catch(e
 let u = cursor(), last = readjson(DIR + '/result.json');
 let interval = int(u.get('e5-plugin-ipv6-fix', 'settings', 'interval') ?? '3600');
 if (interval < 60 || interval > 43200) interval = 3600;
-if (ARGV[0] == 'auto' && readfile(DIR + '/schedule') == null) exit(0);
+if (index(['auto', 'cron'], ARGV[0]) >= 0 && readfile(DIR + '/schedule') == null) exit(0);
 function log(strategy, message) {
  let previous = readfile(DIR + '/log.txt') ?? '';
  writefile(DIR + '/log.txt', substr(previous, -60000) + sprintf('%d %s: %s\n', time(), strategy, message));
@@ -17,6 +17,14 @@ function finish(ok, strategy, message) {
  if (ok && ARGV[0] != 'delete') {
   let connected = system('timeout 4 ping -6 -c 1 -W 3 2400:3200::1 >/dev/null 2>&1') == 0;
   if (!connected) { ok = false; strategy = 'connectivity_failed'; message = 'Route updated but IPv6 connectivity check failed'; }
+ }
+ // Recalculate the visible cron interval when the advertised lifetime changes.
+ if (ok && ARGV[0] != 'delete' && readfile(DIR + '/schedule') != null) {
+  let lease = readjson(DIR + '/lease.json');
+  let cron = loadfile('/etc/e5-infoscreen/plugins/ipv6-fix/cron.uc', {raw_mode:true})();
+  if (!cron.configure(true, interval, lease?.lifetime)) {
+   ok = false; strategy = 'schedule_failed'; message = 'Route refreshed but cron update failed';
+  }
  }
  let r = { ok, strategy, message, time: time() };
  writefile(DIR + '/result.json', sprintf('%J\n', r));
@@ -49,22 +57,10 @@ let remaining = expiry(route);
 let margin = lease?.device == dev && lease.gateway == (gw ? gw[1] : null) ? int(lease.lifetime / 5) : 300;
 if (margin < 120) margin = 120;
 if (margin > 300) margin = 300;
-// The runtime scheduler checks every five seconds. Do not let the configured interval outlive RA.
+// Native cron owns the wall-clock schedule; a manual refresh must not skip its next slot.
 let elapsed = last ? time() - last.time : interval;
-let reason = !last ? 'initial' : !last.ok ? 'retry' : remaining == null ? 'missing_expiry' : remaining <= margin ? 'lease_expiring' : elapsed >= interval ? 'interval' : 'health_check';
-if (ARGV[0] == 'auto') {
- if (last && !last.ok && elapsed < 60) exit(0);
- if (last?.ok && elapsed < interval && remaining != null && remaining > margin) {
-  // Health probes need not run on every scheduler tick.
-  let health = readjson(DIR + '/health.json');
-  if (health && health.time <= time() && time() - health.time < 60 && health.ok) exit(0);
-  let connected = system('timeout 4 ping -6 -c 1 -W 3 2400:3200::1 >/dev/null 2>&1') == 0;
-  writefile(DIR + '/health.json', sprintf('%J\n', {ok:connected,time:time()}));
-  if (connected) exit(0);
-  reason = 'connectivity_failed';
- }
- log('schedule_due', sprintf('reason=%s interval=%ds elapsed=%ds remaining=%s', reason, interval, elapsed, remaining == null ? 'none' : '' + remaining));
-}
+if (ARGV[0] == 'cron' || ARGV[0] == 'auto')
+ log('schedule_due', sprintf('reason=cron interval=%ds elapsed=%ds remaining=%s', interval, elapsed, remaining == null ? 'none' : '' + remaining));
 let addresses = sh('ip -6 addr show dev ' + quote(dev) + ' scope global');
 if (!length(addresses)) finish(false, 'skipped', 'No global IPv6 address on cellular WAN');
 let rdisc6 = sh('if [ "$(uname -m)" = aarch64 ] && [ -x /etc/e5-infoscreen/plugins/ipv6-fix/bin/rdisc6 ]; then echo /etc/e5-infoscreen/plugins/ipv6-fix/bin/rdisc6; else command -v rdisc6; fi');

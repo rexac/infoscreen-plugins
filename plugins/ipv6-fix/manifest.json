@@ -1,7 +1,7 @@
 {
   "id": "ipv6-fix",
   "api_version": 2,
-  "version": "1.11",
+  "version": "1.12",
   "name": {"zh": "IPv6 路由修复", "en": "IPv6 route repair"},
   "short_name": {"zh": "路由修复", "en": "Route repair"},
   "description": {"zh": "蜂窝 RA 路由续期、定时保活与诊断", "en": "Cellular RA route renewal, scheduling and diagnostics"},

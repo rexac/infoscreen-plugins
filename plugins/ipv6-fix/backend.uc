@@ -6,6 +6,7 @@ return function(ctx) {
  const JOB = '/usr/bin/ucode ' + BASE + '/worker.uc';
  const LOCKED = 'flock -n ' + DIR + '/lock ';
  const MARKER = DIR + '/schedule';
+ const cron = loadfile(BASE + '/cron.uc', {raw_mode:true})();
  function fail(message, code) { return { status: code ?? 500, type: 'application/json', body: sprintf('%J', { error: message }) }; }
  function saved(path) { try { return json(readfile(path) ?? 'null'); } catch(e) { return null; } }
  function logs() { return join('\n', slice(split(readfile(DIR + '/log.txt') ?? '', '\n'), -41)); }
@@ -14,9 +15,8 @@ return function(ctx) {
   return n >= 60 && n <= 43200 ? n : 3600;
  }
  function running() {
-  let heartbeat = saved(DIR + '/scheduler.json');
-  return readfile(MARKER) != null && heartbeat && time() - heartbeat.time < 70 &&
-   ctx.run('flock -n ' + DIR + '/scheduler.lock true >/dev/null 2>&1') == 1;
+  return readfile(MARKER) != null && match(readfile('/etc/crontabs/root') ?? '', /# e5-ipv6-fix[ \t]*(\n|$)/) != null &&
+   ctx.run('/etc/init.d/cron running >/dev/null 2>&1') == 0;
  }
  function status() {
   let wan = ctx.ubus('network.interface.wan', 'status', {}) ?? {};
@@ -33,42 +33,42 @@ return function(ctx) {
    ping = { ok: ctx.run('timeout 3 ping -6 -c 1 -W 2 2400:3200::1 >/dev/null 2>&1') == 0, time: time() };
    ctx.state_put('ping6', ping);
   }
-  let enabled = running(), last = saved(DIR + '/result.json');
-  let remaining = exp ? int(exp[1]) : null;
-  let margin = lifetime ? int(lifetime / 5) : 300;
-  if (margin < 120) margin = 120;
-  if (margin > 300) margin = 300;
-  let wait = last ? (last.ok ? last.time + interval() - time() : last.time + 60 - time()) : 0;
-  if (last?.ok && remaining != null && remaining - margin < wait) wait = remaining - margin;
-  if (last?.ok && (remaining == null || !ping.ok)) wait = 0;
-  if (wait < 0) wait = 0;
-  return { enabled, next_refresh_in: enabled ? wait : null,
+  let enabled = running(), actual = saved(DIR + '/cron.json');
+  return { enabled, next_refresh_in: enabled && actual ? cron.wait(actual, time()) : null,
+   effective_interval: actual?.interval, cron_expression: actual?.expression,
    interval: interval(), device, operator: ctx.modem()?.operator, route, route_count: length(candidates),
    expires: exp ? int(exp[1]) : null, ra_lifetime: lifetime, ping6: ping, time: time(),
    strategy: saved(DIR + '/strategy.json'), result: saved(DIR + '/result.json'),
    rdisc6: length(trim(ctx.sh('if [ "$(uname -m)" = aarch64 ] && [ -x ' + BASE + '/bin/rdisc6 ]; then echo bundled; else command -v rdisc6; fi') ?? '')) > 0,
    flock: ctx.run('command -v flock >/dev/null 2>&1') == 0, routes, log: logs() };
  }
- function schedule(enabled) {
-  if (ctx.run('command -v flock >/dev/null 2>&1 && mkdir -p ' + DIR) != 0) return fail('Install the OpenWrt flock package first');
-  // Migrate old installations without touching unrelated cron jobs.
-  let path = '/etc/crontabs/root', previous = readfile(path) ?? '';
-  let lines = filter(split(previous, '\n'), l => !match(l, /# e5-ipv6-fix[ \t]*$/));
-  let cleaned = join('\n', lines);
-  if (cleaned != previous && (!writefile(path + '.ipv6-fix', cleaned) || !rename(path + '.ipv6-fix', path))) return fail('Cannot remove old scheduler cron entry');
-  if (enabled) {
-   if (!writefile(MARKER, '1\n')) return fail('Cannot start scheduler');
-   if (!running() && ctx.run('nohup flock -n ' + DIR + '/scheduler.lock /usr/bin/ucode ' + BASE + '/scheduler.uc </dev/null >/dev/null 2>&1 &') != 0)
-    return fail('Cannot start scheduler');
-  } else unlink(MARKER);
-  let u = ctx.uci();
-  if (u.get('e5-plugin-ipv6-fix', 'settings')) { u.delete('e5-plugin-ipv6-fix', 'settings', 'enabled'); u.commit('e5-plugin-ipv6-fix'); }
-  return { ok: true };
- }
  function launch(mode) {
   if (ctx.run('command -v flock >/dev/null 2>&1 && mkdir -p ' + DIR) != 0) return fail('Install the OpenWrt flock package first');
   if (ctx.run(LOCKED + 'timeout 55 ' + JOB + ' ' + mode + ' >/dev/null 2>&1 &') != 0) return fail('Cannot start task');
   return { ok: true, queued: true };
+ }
+ function schedule(enabled) {
+  let wasEnabled = running();
+  if (ctx.run('command -v flock >/dev/null 2>&1 && mkdir -p ' + DIR + ' /etc/crontabs') != 0) return fail('Install the OpenWrt flock package first');
+  // Stop the previous runtime scheduler before reusing its enable marker.
+  if (ctx.run('flock -n ' + DIR + '/scheduler.lock true >/dev/null 2>&1') == 1) {
+   unlink(MARKER);
+   if (ctx.run('timeout 60 flock ' + DIR + '/scheduler.lock true') != 0) return fail('Previous scheduler is still stopping; retry');
+  }
+  let lease = saved(DIR + '/lease.json');
+  if (!enabled) unlink(MARKER);
+  let wan = ctx.ubus('network.interface.wan', 'status', {}) ?? {};
+  let lifetime = lease?.device == wan.l3_device && lease.lifetime > 0 && time() - lease.time <= lease.lifetime ? lease.lifetime : null;
+  let p = cron.configure(enabled, interval(), lifetime);
+  if (!p) return fail('Cannot update cron');
+  if (enabled) {
+   if (!writefile(MARKER, '1\n')) return fail('Cannot enable scheduler');
+   if (ctx.run('/etc/init.d/cron start') != 0) { unlink(MARKER); return fail('Cannot start cron'); }
+  }
+  let u = ctx.uci();
+  if (u.get('e5-plugin-ipv6-fix', 'settings')) { u.delete('e5-plugin-ipv6-fix', 'settings', 'enabled'); u.commit('e5-plugin-ipv6-fix'); }
+  if (enabled && !wasEnabled) launch('manual');
+  return { ok: true, effective_interval: p.interval, cron_expression: p.expression };
  }
  return {
   'GET /status': () => status(),
@@ -89,6 +89,7 @@ return function(ctx) {
    if (!u.get('e5-plugin-ipv6-fix', 'settings')) u.set('e5-plugin-ipv6-fix', 'settings', 'settings');
    u.set('e5-plugin-ipv6-fix', 'settings', 'interval', '' + n);
    if (!u.commit('e5-plugin-ipv6-fix')) return fail('Cannot save interval');
+   if (readfile(MARKER) != null) return schedule(true);
    return { ok: true };
   }
  };

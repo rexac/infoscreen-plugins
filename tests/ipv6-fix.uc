@@ -26,6 +26,7 @@ function scenario(name, before, options, expected, writes) {
    if (index(cmd, 'ip -6 route show') == 0) return current;
    die('Unexpected read: ' + cmd);
   },
+  loadfile: () => () => ({configure:()=>true}),
   system: cmd => {
    push(commands, cmd);
    if (index(cmd, 'timeout 4 ping ') == 0) return options.ping_fail ? 1 : 0;
@@ -39,7 +40,7 @@ function scenario(name, before, options, expected, writes) {
   }
  };
  let result;
- try { loadstring('return function(env) { let cursor=env.cursor, readfile=env.readfile, writefile=env.writefile, sh=env.sh, system=env.system, ARGV=env.ARGV;\n' + source + '\n};', { raw_mode:true })()(env); }
+ try { loadstring('return function(env) { let cursor=env.cursor, readfile=env.readfile, writefile=env.writefile, sh=env.sh, system=env.system, ARGV=env.ARGV,loadfile=env.loadfile;\n' + source + '\n};', { raw_mode:true })()(env); }
  catch(e) { try { result=json(e.message ?? e); } catch(ignore) { result={strategy:e.message ?? e}; } }
  assert(result?.strategy == expected, name + ': ' + sprintf('%J', result));
  let mutations = filter(commands, c => index(c, 'ip -6 route ') == 0);
@@ -71,17 +72,9 @@ scenario('binary absent leaves route intact', route, {no_binary:true}, 'no_ra', 
 scenario('installation failure reported', route, {write_fail:true}, 'failed', 1);
 scenario('ping failure not success', route, {ping_fail:true}, 'connectivity_failed', 1);
 scenario('explicit deletion', route, {mode:'delete'}, 'deleted', 1);
-scenario('scheduler stopped', route, {mode:'auto'}, 'idle', 0);
+scenario('scheduler stopped', route, {mode:'cron'}, 'idle', 0);
 let saved={ '/tmp/e5-ipv6-fix/schedule':'1', '/tmp/e5-ipv6-fix/result.json':sprintf('%J',{ok:true,time:time()}) };
-scenario('healthy lease waits for interval', replace(route,'120sec','1800sec'), {mode:'auto',stored:saved}, 'idle', 0);
-scenario('near expiry overrides one-hour interval', route, {mode:'auto',stored:saved}, 'ra_replace', 1);
-saved['/tmp/e5-ipv6-fix/result.json']=sprintf('%J',{ok:false,time:time()-61});
-scenario('failed refresh retried next cron tick', replace(route,'120sec','1800sec'), {mode:'auto',stored:saved}, 'ra_replace', 1);
-
+scenario('cron slot runs even after recent manual refresh', replace(route,'120sec','1800sec'), {mode:'cron',stored:saved}, 'ra_replace', 1);
+scenario('cron renews near expiry', route, {mode:'cron',stored:saved}, 'ra_replace', 1);
 scenario('changed upstream lifetime is honored', route, {reply:replace(reply,'3600','1800'),lifetime:1800}, 'ra_replace', 1);
-saved['/tmp/e5-ipv6-fix/result.json']=sprintf('%J',{ok:true,time:time()});
-delete saved['/tmp/e5-ipv6-fix/health.json'];
-scenario('lost connectivity overrides interval', replace(route,'120sec','1800sec'), {mode:'auto',stored:saved,ping_fail:true}, 'connectivity_failed', 1);
-
-saved['/tmp/e5-ipv6-fix/result.json']=sprintf('%J',{ok:false,time:time()});
-scenario('failed task retry is throttled', route, {mode:'auto',stored:saved}, 'idle', 0);
+scenario('failed connectivity is reported on scheduled refresh', route, {mode:'cron',stored:saved,ping_fail:true}, 'connectivity_failed', 1);
