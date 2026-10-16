@@ -38,12 +38,12 @@ function drawLease() {
   static: t('静态路由（无 expires），不代表连通', 'Static route (no expiry); connectivity unverified'),
   expired: t('已过期，等待下次调度刷新', 'Expired; waiting for scheduled renewal')
  };
- const text = lease.kind === 'expiring' ? RouteView.duration(lease.seconds, e5.lang === 'en') + `（${lease.seconds}s）` : texts[lease.kind];
+ const text = lease.kind === 'expiring' ? RouteView.duration(lease.seconds, e5.lang === 'en') : texts[lease.kind];
  $('rra-exp').textContent = text;
  const tone = lease.kind === 'expiring' ? 'good' : ['missing', 'expired'].includes(lease.kind) ? 'bad' : 'neutral';
  $('rra-exp').className = tone;
  $('rra-bar').style.width = lease.percent + '%';
- $('rra-bar').style.background = tone === 'good' ? '#4caf50' : tone === 'bad' ? '#f44336' : '#9e9e9e';
+ $('rra-bar').style.background = tone === 'good' ? '#83b8ff' : tone === 'bad' ? '#ed929c' : '#64748b';
  $('rra-progress').setAttribute('aria-valuenow', String(Math.round(lease.percent)));
  $('rra-progress').setAttribute('aria-valuetext', text);
  $('progress-note').textContent = lease.kind === 'expiring' ? (state?.ra_lifetime > 0 ? t('上游 RA 有效期：', 'Advertised RA lifetime: ') + state.ra_lifetime + 's' : t('尚无对应的 RA 有效期，进度条暂不显示比例。', 'RA lifetime unknown; percentage unavailable.')) : '';
@@ -52,24 +52,25 @@ function paint() {
  $('title').textContent = t('IPv6 路由修复', 'IPv6 route repair');
  for (const [id, zh, en] of [
   ['operator-label','运营商：','Operator: '],['device-label','数据口：','Interface: '],['ping-label','IPv6 连通：','IPv6: '],
-  ['watch-label','调度器：','Scheduler: '],['strategy-label','上次刷新策略：','Last successful strategy: '],
-  ['route-label','当前路由：','Current route: '],['expiry-label','剩余有效期：','Remaining lifetime: '],
+  ['watch-label','自动续期','Automatic renewal'],['strategy-label','上次刷新策略：','Last successful strategy: '],
+  ['route-label','当前路由：','Current route: '],['expiry-label','路由剩余有效期','Route lifetime remaining'],
   ['refresh','立即刷新','Refresh now'],['reload','刷新状态','Reload status'],['start','启动调度','Start scheduler'],['stop','停止调度','Stop scheduler'],
   ['delete-route','删除当前路由','Delete current route'],['interval-label','最长刷新间隔','Maximum interval'],
   ['result-title','最近一次运行结果','Latest run result'],['routes-title','全部 IPv6 路由','All IPv6 routes'],
-  ['log-title','历史运行日志','Run history'],['log-refresh','刷新日志','Refresh log'],['log-clear','清空日志','Clear log']
+  ['diagnostic-title','路由与诊断','Route diagnostics'],['log-title','运行日志','Run history'],['log-refresh','刷新日志','Refresh log'],['log-clear','清空日志','Clear log']
  ]) $(id).textContent = t(zh, en);
+ $('schedule-caption').textContent = t('设置已保存，重启后继续生效', 'Saved · continues after reboot');
  $('rra-op').textContent = state?.operator || t('未知', 'Unknown');
  $('rra-iface').textContent = state?.device || '—';
  $('rra-ping').textContent = state?.ping6 ? (state.ping6.ok ? t('正常', 'OK') : t('不通', 'Failed')) : '—';
  $('rra-ping').className = state?.ping6 ? (state.ping6.ok ? 'good' : 'bad') : 'neutral';
  $('rra-watch').textContent = state?.enabled ? t('运行中', 'Running') : t('已停止', 'Stopped');
- $('rra-watch').className = state?.enabled ? 'good' : 'neutral';
- $('rra-interval').textContent = '（' + intervalText(Number(state?.interval || 3600)) + '）' + (state?.effective_interval && state.effective_interval !== state.interval ? t('，实际 ', ', actual ') + intervalText(state.effective_interval) : '');
+ $('rra-watch').className = 'status-dot ' + (state?.enabled ? 'good' : 'neutral');
+ $('rra-interval').textContent = t('计划间隔 ', 'Interval ') + intervalText(Number(state?.interval || 3600)) + (state?.effective_interval && state.effective_interval !== state.interval ? t('，实际 ', ', actual ') + intervalText(state.effective_interval) : '');
  $('rra-rd').textContent = state?.rdisc6 ? t('已内置，可用', 'Bundled, ready') : t('不可用', 'Unavailable');
  $('rra-strategy').textContent = state?.strategy ? describe(state.strategy.strategy, state.strategy.message) + ' · ' + timestamp(state.strategy.time) : t('暂无（尚未刷新过）', 'None yet');
  $('rra-route').textContent = state?.route || (state?.route_count > 1 ? t('多条候选路由，请查看全部路由', 'Multiple candidates; see all routes') : t('未找到默认路由（可能已到期被删）', 'No default route found (possibly expired)'));
- $('principle').textContent = t('按真实 RA 有效期续期；临近到期或 IPv6 不通时提前刷新，不人为延长有效期。', 'Renews using the advertised RA lifetime, earlier near expiry or on connectivity loss.');
+ $('principle').textContent = t('按上游 RA 的真实有效期续期；自动调度会据此限制刷新间隔，不人为延长有效期。', 'Renews using the advertised RA lifetime, which also limits the scheduled interval. The lifetime is never artificially extended.');
  $('runtime-note').textContent = t('使用 OpenWrt 计划任务，按整点时间执行；RA 有效期较短时缩短实际间隔。关闭页面或重启后均继续运行；点击停止会保存停用状态。', 'Uses OpenWrt cron wall-clock slots. Short RA lifetimes shorten the actual interval. Continues with this page closed and after reboot; Stop saves the disabled state.') + (state?.enabled && state.cron_expression ? ' [' + state.cron_expression + ']' : '');
  $('log-hint').textContent = t('只显示最近 40 行；旧失败不代表当前故障。', 'Last 40 lines; past failures do not indicate a current fault.');
  $('result').textContent = state?.result ? (state.result.ok ? '✓ ' : '⚠ ') + describe(state.result.strategy, state.result.message) + '\n' + timestamp(state.result.time) : t('尚未运行', 'Not run yet');
@@ -163,7 +164,7 @@ $('delete-route').onclick = () => {
 e5.onLang(paint);
 e5.onKey(k => {
  if (!$('interval-picker').hidden && k.kind === 'back') { closeIntervalPicker(); return true; }
- const controls = Array.from(document.querySelectorAll($('interval-picker').hidden ? 'button, summary, #log' : '#interval-picker button')).filter(el => !el.closest('[hidden]'));
+ const controls = Array.from(document.querySelectorAll($('interval-picker').hidden ? 'button, summary, #log' : '#interval-picker button')).filter(el => !el.closest('[hidden]') && el.getClientRects().length);
  let i = controls.indexOf(document.activeElement), current = controls[i];
  if (['up', 'down', 'left', 'right'].includes(k.kind)) {
   if (current?.id === 'log' && ['up','down'].includes(k.kind)) { current.scrollTop += k.kind === 'up' ? -80 : 80; return true; }

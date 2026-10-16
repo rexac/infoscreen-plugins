@@ -4,41 +4,49 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>IPv6 路由修复</title>
 <style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;padding:10px;background:#0b0e13;color:#e8ecf2;font:14px sans-serif;line-height:1.65}h1{font-size:21px;margin:0 0 8px}h2{font-size:16px;margin:12px 0 6px}.card{padding:10px;background:#161b23;border-radius:10px}.row{margin:3px 0}.dim{color:#abb8ca}.value{color:#e8ecf2}.route{overflow-wrap:anywhere;font-size:12px}.bar{height:7px;margin:7px 0 4px;border-radius:4px;background:#343e4b;overflow:hidden}#rra-bar{height:100%;width:0;transition:width .5s;background:#4caf50}.good{color:#69ce79}.bad{color:#ff7272}.neutral{color:#b9c7d9}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0}button,select{padding:10px 6px;background:#1b2533;color:inherit;border:1px solid #42536c;border-radius:8px;font:inherit;min-height:42px}button:focus,select:focus{outline:2px solid #66baff}button:disabled{opacity:.5}.danger{color:#ff9494}.interval{display:flex;align-items:center;gap:10px;margin:10px 0}.interval button{flex:1;min-width:0;text-align:left;display:flex;justify-content:space-between;align-items:center}.interval button::after{content:'▾';color:#abb8ca}.picker[hidden]{display:none}.picker{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(0,0,0,.72)}.picker-panel{width:100%;max-width:360px;max-height:calc(100vh - 28px);overflow:auto;padding:12px;border:1px solid #42536c;border-radius:12px;background:#161b23;box-shadow:0 12px 36px #0008}.picker-panel h2{margin:0 0 10px}.picker-options{display:grid;gap:6px}.picker-options button{text-align:left;background:#1b2533;color:#e8ecf2}.picker-options button[aria-pressed="true"]{border-color:#66baff;background:#213b54;color:#bce0ff}.picker-options button[aria-pressed="true"]::after{content:'✓';float:right}.picker-panel>button{width:100%;margin-top:10px;background:#252e3b;color:#abb8ca}p{font-size:12px;margin:6px 0}.log-actions{display:flex;gap:8px}.log-actions button{flex:1}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 monospace;margin:6px 0}#log{height:220px;overflow:auto;background:#161b23;padding:8px;border-radius:8px}#message{color:#8dcbff;min-height:1.5em}details summary{padding:8px;cursor:pointer}details pre{max-height:220px;overflow:auto}.progress-note{font-size:11px}
+:root{color-scheme:dark;--bg:#0c111b;--surface:#151d2b;--line:#273245;--muted:#8898af;--ink:#ecf2fa;--accent:#83b8ff}*{box-sizing:border-box}body{margin:0;padding:14px 12px 20px;background:var(--bg);color:var(--ink);font:13px/1.5 system-ui,-apple-system,sans-serif}button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}button,summary{touch-action:manipulation}button:disabled{opacity:.45;cursor:default}button:focus-visible,summary:focus-visible,#log:focus-visible{outline:2px solid var(--accent);outline-offset:2px}button:active{filter:brightness(1.2)}.header{display:flex;align-items:center;gap:10px;margin:0 0 12px}.app-icon{width:32px;height:32px;display:grid;place-items:center;border:1px solid #304d72;border-radius:10px;background:#1b2d46;color:#9bc9ff}.app-icon svg{width:19px;height:19px}.eyebrow{font-size:9px;letter-spacing:1.5px;color:var(--muted);line-height:1.3}h1{font-size:18px;letter-spacing:-.4px;font-weight:650;margin:1px 0 0}h2{font-size:13px;margin:0 0 8px;font-weight:600}.card{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:13px;margin-bottom:10px}.hero{background:linear-gradient(135deg,#19273b,#131e2e);border-color:#2b405c}.hero-top{display:flex;align-items:center;justify-content:space-between;gap:8px}.network{font-size:12px;color:#c1cde0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.connection{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:3px 8px;background:#112c28;font-size:11px;white-space:nowrap}.connection::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}.connection:has(.bad){background:#3a2028}.lease{margin-top:15px}.dim{color:var(--muted)}.lease-label{font-size:11px}.lease-value{margin:4px 0 10px;min-height:34px;font-size:24px;line-height:1.4;font-weight:600;letter-spacing:-.5px;font-variant-numeric:tabular-nums}.lease-value .neutral,.lease-value .bad{font-size:15px;letter-spacing:0}.lease-value .good{color:#ecf2fa}.bar{height:5px;border-radius:10px;background:#2b3a4f;overflow:hidden}#rra-bar{height:100%;width:0;transition:width .5s;background:#79b5ff}.progress-note{margin:7px 0 0;font-size:10px;color:#889db8}.good{color:#70d6b1}.bad{color:#ff9b9b}.neutral{color:#a5b2c7}.actions{display:grid;grid-template-columns:1.5fr 1fr;gap:8px;margin:0 0 12px}button{min-height:40px;padding:8px 10px;background:#1c293c;border:1px solid #32435c;border-radius:10px;font-size:12px}#refresh{background:#a6cbff;color:#12253e;border-color:#a6cbff;font-weight:650}#reload{background:#172132;color:#bbcce1}.section-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.section-head h2{margin:0}.status-dot{font-size:11px}.status-dot::before{content:'●';font-size:7px;margin-right:5px}.next-row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:12px 0 10px;font-size:11px}#rra-next{font-variant-numeric:tabular-nums;color:#d4e3f7}.interval{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--line);font-size:11px;color:var(--muted)}.interval button{min-height:32px;padding:5px 10px;display:flex;align-items:center;gap:14px;color:#dae7fa;border-color:#33455e;border-radius:8px;background:#1c293c;font-size:12px}.interval button::after{content:'⌄';color:#91a9c8}.schedule-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.schedule-actions button{min-height:34px;font-size:11px;background:#1b2839;border-color:#2e4057}#stop{background:transparent;color:#91a0b6}#rra-interval{display:block;font-size:10px;color:var(--muted);margin-top:2px}.schedule-caption{margin:8px 0 0;font-size:10px;color:var(--muted)}details.card{padding:0;overflow:hidden}summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 13px;font-size:12px;color:#b8c8df;min-height:42px}summary::-webkit-details-marker{display:none}summary::after{content:'+';color:#778ca9;font-size:16px}details[open]>summary::after{content:'−'}details[open]>summary{border-bottom:1px solid var(--line)}.detail-content{padding:12px 13px}.row{margin:0 0 10px;font-size:11px}.row>span:first-child{display:block;margin-bottom:3px}.route{overflow-wrap:anywhere;font:10px/1.65 monospace;color:#b8cae1;background:#101925;padding:8px;border-radius:7px;margin-top:5px}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.65 monospace;color:#b9c8dc;margin:6px 0 12px}#result{font:11px/1.7 system-ui,sans-serif;border-left:2px solid #597a9e;padding-left:9px}.danger{width:100%;color:#eaa3ac;border-color:#573541;background:#2b1e2b}.log-actions{display:flex;gap:7px;margin:10px 0}.log-actions button{flex:1;min-height:34px;font-size:11px;background:#1a2637}#log{max-height:240px;min-height:42px;overflow:auto;background:#101925;padding:9px;border-radius:8px;margin:0}#log:empty::before{content:'—';color:var(--muted)}p{font-size:11px;margin:8px 0;color:var(--muted)}#message{font-size:11px;color:#b8d5fb;margin:0}#message:not(:empty){padding:9px 10px;border:1px solid #304a69;background:#14253a;border-radius:9px;margin:0 0 10px}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.picker[hidden]{display:none}.picker{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(4,9,17,.82)}.picker-panel{width:100%;max-width:340px;max-height:calc(100vh - 36px);overflow:auto;padding:14px;border:1px solid #3a4d67;border-radius:16px;background:#151f2e;box-shadow:0 18px 50px #0008}.picker-panel h2{margin:0 0 12px;font-size:14px}.picker-options{display:grid;gap:6px}.picker-options button{text-align:left;background:#1a293d;border-color:#2b3e57;color:#d8e6f8;min-height:38px}.picker-options button[aria-pressed="true"]{border-color:#8dbdff;background:#263e5d;color:#dcecff}.picker-options button[aria-pressed="true"]::after{content:'✓';float:right;color:#9cc8ff}.picker-panel>button{width:100%;margin-top:10px;background:transparent;color:#9babc1;border-color:#314157}@media(prefers-reduced-motion:reduce){#rra-bar{transition:none}}
 </style>
-<h1 id="title"></h1>
-<section class="card" aria-label="IPv6 status">
- <div class="row"><span id="operator-label" class="dim"></span><span id="rra-op"></span></div>
- <div class="row"><span id="device-label" class="dim"></span><span id="rra-iface"></span> · <span id="ping-label" class="dim"></span><span id="rra-ping"></span></div>
- <div class="row"><span id="watch-label" class="dim"></span><span id="rra-watch"></span><span id="rra-interval"></span></div>
- <div class="row"><span id="next-label" class="dim"></span><span id="rra-next"></span></div>
- <div class="row"><span class="dim">rdisc6：</span><span id="rra-rd"></span></div>
+<header class="header">
+ <span class="app-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="6" height="6" rx="2"/><rect x="15" y="15" width="6" height="6" rx="2"/><path d="M9 6h6a3 3 0 0 1 3 3v3m-3-3 3 3 3-3M15 18H9a3 3 0 0 1-3-3v-3m-3 3 3-3 3 3"/></svg></span>
+ <div><div class="eyebrow">NETWORK / IPv6</div><h1 id="title"></h1></div>
+</header>
+<section class="card hero" aria-label="IPv6 status">
+ <div class="hero-top">
+  <div class="network"><span id="operator-label" class="sr-only"></span><span id="rra-op"></span></div>
+  <div class="connection"><span id="ping-label" class="sr-only"></span><span id="rra-ping"></span></div>
+ </div>
+ <div class="lease"><div id="expiry-label" class="dim lease-label"></div><div class="lease-value"><span id="rra-exp" aria-live="off"></span></div></div>
+ <div id="rra-progress" class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="rra-bar"></div></div>
+ <p id="progress-note" class="progress-note"></p>
+</section>
+<div class="actions"><button id="refresh"></button><button id="reload"></button></div>
+<p id="message" role="status"></p>
+<section class="card">
+ <div class="section-head"><h2 id="watch-label"></h2><span id="rra-watch" class="status-dot"></span></div>
+ <span id="rra-interval"></span>
+ <div class="next-row"><span id="next-label" class="dim"></span><span id="rra-next"></span></div>
+ <div class="interval"><span id="interval-label"></span><button id="interval" type="button" aria-labelledby="interval-label interval-value" aria-haspopup="dialog" aria-expanded="false"><span id="interval-value"></span></button></div>
+ <div class="schedule-actions"><button id="start"></button><button id="stop"></button></div>
+ <div id="schedule-caption" class="schedule-caption"></div>
+</section>
+<details class="card"><summary id="diagnostic-title"></summary><div class="detail-content">
+ <div class="row"><span id="device-label" class="dim"></span><span id="rra-iface"></span></div>
+ <div class="row"><span class="dim">rdisc6</span><span id="rra-rd"></span></div>
  <div class="row"><span id="strategy-label" class="dim"></span><span id="rra-strategy"></span></div>
  <div class="row"><span id="route-label" class="dim"></span><div id="rra-route" class="route"></div></div>
- <div class="row"><span id="expiry-label" class="dim"></span><span id="rra-exp" aria-live="off"></span></div>
- <div id="rra-progress" class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="rra-bar"></div></div>
- <p id="progress-note" class="dim progress-note"></p>
- <p id="principle" class="dim"></p>
-</section>
-<p id="message" role="status"></p>
-<div class="actions">
- <button id="refresh"></button><button id="reload"></button>
- <button id="start"></button><button id="stop"></button>
+ <h2 id="result-title"></h2><pre id="result" role="status"></pre>
+ <details><summary id="routes-title"></summary><pre id="routes"></pre></details>
+ <p id="principle"></p><p id="runtime-note"></p>
  <button id="delete-route" class="danger"></button>
-</div>
-<div class="interval"><span id="interval-label"></span><button id="interval" type="button" aria-labelledby="interval-label interval-value" aria-haspopup="dialog" aria-expanded="false"><span id="interval-value"></span></button></div>
+</div></details>
+<details class="card"><summary id="log-title"></summary><div class="detail-content">
+ <p id="log-hint"></p><div class="log-actions"><button id="log-refresh"></button><button id="log-clear"></button></div>
+ <pre id="log" tabindex="0"></pre>
+</div></details>
 <div id="interval-picker" class="picker" hidden>
  <section class="picker-panel" role="dialog" aria-modal="true" aria-labelledby="interval-picker-title">
-  <h2 id="interval-picker-title"></h2>
-  <div id="interval-options" class="picker-options"></div>
-  <button id="interval-cancel" type="button"></button>
+  <h2 id="interval-picker-title"></h2><div id="interval-options" class="picker-options"></div><button id="interval-cancel" type="button"></button>
  </section>
 </div>
-<p id="runtime-note" class="dim"></p>
-<h2 id="result-title"></h2><pre id="result" role="status"></pre>
-<details><summary id="routes-title"></summary><pre id="routes"></pre></details>
-<h2 id="log-title"></h2><p id="log-hint" class="dim"></p>
-<div class="log-actions"><button id="log-refresh"></button><button id="log-clear"></button></div>
-<pre id="log" tabindex="0"></pre>
-<script src="/sdk/e5.js"></script><script src="view.js?v=1.13"></script><script src="app.js?v=1.13"></script>
+<script src="/sdk/e5.js"></script><script src="view.js?v=1.14"></script><script src="app.js?v=1.14"></script>
 </html>
