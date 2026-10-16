@@ -1,8 +1,9 @@
 'use strict';
 const $ = id => document.getElementById(id);
 const t = (zh, en) => e5.t({zh, en});
-let state = null, receivedAt = null, busy = false, loading = false, logLoading = false, deleteCount = 0, deleteTimer, oldLog = '';
+let state = null, receivedAt = null, busy = false, loading = false, logLoading = false, deleteCount = 0, deleteTimer, oldLog = '', logEpoch = 0;
 const labels = {
+ schedule_due: ['自动调度触发', 'Automatic refresh triggered'],
  static: ['静态默认路由，需检查连通性', 'Static route; connectivity must be checked'],
  no_ra: ['未收到有效 RA，保留现有路由', 'No usable RA; existing route retained'],
  connectivity_failed: ['路由已更新，但 IPv6 连通检查失败', 'Route updated, but IPv6 connectivity failed'],
@@ -26,6 +27,9 @@ function timestamp(seconds) {
 }
 function intervalText(seconds) { return seconds >= 3600 ? (seconds / 3600) + t(' 小时', ' h') : (seconds / 60) + t(' 分钟', ' min'); }
 function drawLease() {
+ const age = receivedAt == null ? 0 : (performance.now() - receivedAt) / 1000;
+ $('next-label').textContent = t('下次刷新：', 'Next refresh: ');
+ $('rra-next').textContent = !state?.enabled ? t('调度已停止', 'Scheduler stopped') : age > 15 ? t('等待状态更新', 'Waiting for status') : state.next_refresh_in > age ? RouteView.duration(Math.ceil(state.next_refresh_in - age), e5.lang === 'en') : t('即将执行', 'Due now');
  const lease = RouteView.lease(state, receivedAt == null ? 0 : (performance.now() - receivedAt) / 1000);
  const texts = {
   loading: t('读取中…', 'Loading…'), stale: t('状态已过时，等待刷新', 'Stale; waiting for refresh'),
@@ -65,7 +69,7 @@ function paint() {
  $('rra-strategy').textContent = state?.strategy ? describe(state.strategy.strategy, state.strategy.message) + ' · ' + timestamp(state.strategy.time) : t('暂无（尚未刷新过）', 'None yet');
  $('rra-route').textContent = state?.route || (state?.route_count > 1 ? t('多条候选路由，请查看全部路由', 'Multiple candidates; see all routes') : t('未找到默认路由（可能已到期被删）', 'No default route found (possibly expired)'));
  $('principle').textContent = t('按真实 RA 有效期续期；临近到期或 IPv6 不通时提前刷新，不人为延长有效期。', 'Renews using the advertised RA lifetime, earlier near expiry or on connectivity loss.');
- $('runtime-note').textContent = t('调度只在本次开机期间有效；关闭页面后继续运行。删除路由需在 2 秒内连续按 3 次，会短暂中断 IPv6。', 'Scheduling lasts until reboot and continues with this page closed. Press Delete 3 times within 2 seconds; IPv6 will be interrupted.');
+ $('runtime-note').textContent = t('修改间隔后按上次运行时间重新计算，最多延迟 5 秒；临近 RA 到期会提前刷新。调度关闭页面后继续，重启后停止。删除路由需连按 3 次。', 'Interval changes recalculate from the last run, with up to 5 seconds delay. Renewal happens earlier near RA expiry. Scheduling continues with the page closed and stops after reboot. Press Delete 3 times to confirm.');
  $('log-hint').textContent = t('只显示最近 40 行；旧失败不代表当前故障。', 'Last 40 lines; past failures do not indicate a current fault.');
  $('result').textContent = state?.result ? (state.result.ok ? '✓ ' : '⚠ ') + describe(state.result.strategy, state.result.message) + '\n' + timestamp(state.result.time) : t('尚未运行', 'Not run yet');
  $('routes').textContent = state?.routes || '';
@@ -78,21 +82,23 @@ function drawLog(text) {
  if (text !== undefined) oldLog = text;
  const rendered = oldLog.trim().split('\n').filter(Boolean).map(line => {
   const m = line.match(/^(\d+) ([a-z_]+): (.*)$/);
-  return m ? timestamp(Number(m[1])) + ' ' + describe(m[2], m[3]) + (['nd_renew','nd_rebuild','ra_replace','ra_replace_min','route_available','ra_discovered'].includes(m[2]) ? '\n' + m[3] : '') : line;
+  return m ? timestamp(Number(m[1])) + ' ' + describe(m[2], m[3]) + (['nd_renew','nd_rebuild','ra_replace','ra_replace_min','route_available','ra_discovered'].includes(m[2]) || m[2] === 'schedule_due' ? '\n' + m[3] : '') : line;
  }).join('\n\n');
  if ($('log').textContent !== rendered) { $('log').textContent = rendered; $('log').scrollTop = $('log').scrollHeight; }
 }
 async function load() {
  if (loading) return;
  loading = true;
- try { state = await e5.api('/status'); receivedAt = performance.now(); oldLog = state.log || ''; paint(); }
+ const epoch = logEpoch;
+ try { const fresh = await e5.api('/status'); if (epoch !== logEpoch) return; state = fresh; receivedAt = performance.now(); oldLog = state.log || ''; paint(); }
  catch(e) { $('message').textContent = e.data?.error || e.message; }
  finally { loading = false; }
 }
 async function loadLog() {
  if (logLoading) return;
  logLoading = true;
- try { drawLog((await e5.api('/log')).log || ''); }
+ const epoch = logEpoch;
+ try { const fresh = await e5.api('/log'); if (epoch === logEpoch) drawLog(fresh.log || ''); }
  catch(e) { $('message').textContent = e.message; }
  finally { logLoading = false; }
 }
@@ -100,7 +106,7 @@ async function action(path, body) {
  if (busy) return;
  busy = true;
  document.querySelectorAll('button, select').forEach(b => { b.disabled = true; });
- try { const reply = await e5.api(path, {body}); if (reply?.error || reply?.ok === false) throw new Error(reply.error || t('操作失败', 'Operation failed')); $('message').textContent = ['/refresh','/delete-route'].includes(path) ? t('任务已提交，请查看运行结果与日志', 'Task queued; see result and log') : t('操作完成', 'Done'); await load(); await loadLog(); }
+ try { const reply = await e5.api(path, {body}); if (reply?.error || reply?.ok === false) throw new Error(reply.error || t('操作失败', 'Operation failed')); if (path === '/log-clear') { logEpoch++; if (state) state.log = ''; drawLog(''); } $('message').textContent = ['/refresh','/delete-route'].includes(path) ? t('任务已提交，请查看运行结果与日志', 'Task queued; see result and log') : t('操作完成', 'Done'); await load(); await loadLog(); }
  catch(e) { $('message').textContent = e.data?.error || e.message; }
  finally { busy = false; document.querySelectorAll('button, select').forEach(b => { b.disabled = false; }); }
 }

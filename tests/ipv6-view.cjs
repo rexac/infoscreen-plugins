@@ -30,4 +30,23 @@ console.log('14 IPv6 lifetime/view checks passed');
  assert.equal(message.textContent,'Confirmation required');
  assert.equal(refreshed,0,'an error returned with HTTP 200 was treated as success');
  console.log('Legacy HTTP-200 error response handling passed');
+ const loads=source.slice(source.indexOf('async function load()'),source.indexOf("$('refresh').onclick"));
+ let pendingLog, pendingStatus, displayed='old history';
+ const race=vm.createContext({busy:false,loading:false,logLoading:false,logEpoch:0,state:{log:'old history'},oldLog:'old history',receivedAt:0,
+  document:{querySelectorAll:()=>[]},$:()=>message,t:zh=>zh,performance:{now:()=>0},paint:()=>{},
+  drawLog:text=>{displayed=text;},e5:{api:async path=>{
+   if(path==='/log') return new Promise(resolve=>{pendingLog=resolve;});
+   if(path==='/status') return new Promise(resolve=>{pendingStatus=resolve;});
+   return {ok:true};
+  }}});
+ vm.runInContext(loads,race);
+ const oldStatus=vm.runInContext('load()',race), oldLog=vm.runInContext('loadLog()',race);
+ await vm.runInContext("action('/log-clear', {})",race);
+ assert.equal(displayed,'','successful clear did not immediately empty the page');
+ pendingLog({log:'old history'});pendingStatus({log:'old history'});
+ await Promise.all([oldStatus,oldLog]);
+ assert.equal(displayed,'','stale log request refilled cleared history');
+ assert.equal(vm.runInContext('state.log',race),'','stale status request refilled cleared history');
+ console.log('Clear-log polling race checks passed');
+
 })().catch(error=>{console.error(error);process.exitCode=1;});

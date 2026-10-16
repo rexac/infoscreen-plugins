@@ -13,6 +13,11 @@ return function(ctx) {
   let n = int(ctx.uci().get('e5-plugin-ipv6-fix', 'settings', 'interval') ?? '3600');
   return n >= 60 && n <= 43200 ? n : 3600;
  }
+ function running() {
+  let heartbeat = saved(DIR + '/scheduler.json');
+  return readfile(MARKER) != null && heartbeat && time() - heartbeat.time < 70 &&
+   ctx.run('flock -n ' + DIR + '/scheduler.lock true >/dev/null 2>&1') == 1;
+ }
  function status() {
   let wan = ctx.ubus('network.interface.wan', 'status', {}) ?? {};
   let device = match(wan.l3_device ?? '', /^sipa_eth[0-9]+$/) ? wan.l3_device : null;
@@ -28,8 +33,16 @@ return function(ctx) {
    ping = { ok: ctx.run('timeout 3 ping -6 -c 1 -W 2 2400:3200::1 >/dev/null 2>&1') == 0, time: time() };
    ctx.state_put('ping6', ping);
   }
-  let cron = readfile('/etc/crontabs/root') ?? '';
-  return { enabled: readfile(MARKER) != null && index(cron, '# e5-ipv6-fix') >= 0 && ctx.run('/etc/init.d/cron running >/dev/null 2>&1') == 0,
+  let enabled = running(), last = saved(DIR + '/result.json');
+  let remaining = exp ? int(exp[1]) : null;
+  let margin = lifetime ? int(lifetime / 5) : 300;
+  if (margin < 120) margin = 120;
+  if (margin > 300) margin = 300;
+  let wait = last ? (last.ok ? last.time + interval() - time() : last.time + 60 - time()) : 0;
+  if (last?.ok && remaining != null && remaining - margin < wait) wait = remaining - margin;
+  if (last?.ok && (remaining == null || !ping.ok)) wait = 0;
+  if (wait < 0) wait = 0;
+  return { enabled, next_refresh_in: enabled ? wait : null,
    interval: interval(), device, operator: ctx.modem()?.operator, route, route_count: length(candidates),
    expires: exp ? int(exp[1]) : null, ra_lifetime: lifetime, ping6: ping, time: time(),
    strategy: saved(DIR + '/strategy.json'), result: saved(DIR + '/result.json'),
@@ -37,17 +50,17 @@ return function(ctx) {
    flock: ctx.run('command -v flock >/dev/null 2>&1') == 0, routes, log: logs() };
  }
  function schedule(enabled) {
-  if (ctx.run('command -v flock >/dev/null 2>&1 && mkdir -p ' + DIR + ' /etc/crontabs') != 0) return fail('Install the OpenWrt flock package first');
-  if (enabled && readfile(MARKER) != null && index(readfile('/etc/crontabs/root') ?? '', '# e5-ipv6-fix') >= 0 && ctx.run('/etc/init.d/cron running >/dev/null 2>&1') == 0) return { ok: true };
-  let path = '/etc/crontabs/root', lines = filter(split(readfile(path) ?? '', '\n'), l => length(l) && !match(l, /# e5-ipv6-fix$/));
-  if (enabled) push(lines, '* * * * * test ! -f ' + MARKER + ' || test ! -f ' + BASE + '/worker.uc || ' + LOCKED + 'timeout 55 ' + JOB + ' auto >/dev/null 2>&1 # e5-ipv6-fix');
-  if (!writefile(path + '.ipv6-fix', join('\n', lines) + '\n') || !rename(path + '.ipv6-fix', path)) return fail('Cannot update cron');
+  if (ctx.run('command -v flock >/dev/null 2>&1 && mkdir -p ' + DIR) != 0) return fail('Install the OpenWrt flock package first');
+  // Migrate old installations without touching unrelated cron jobs.
+  let path = '/etc/crontabs/root', previous = readfile(path) ?? '';
+  let lines = filter(split(previous, '\n'), l => !match(l, /# e5-ipv6-fix[ \t]*$/));
+  let cleaned = join('\n', lines);
+  if (cleaned != previous && (!writefile(path + '.ipv6-fix', cleaned) || !rename(path + '.ipv6-fix', path))) return fail('Cannot remove old scheduler cron entry');
   if (enabled) {
    if (!writefile(MARKER, '1\n')) return fail('Cannot start scheduler');
-   if (ctx.run('/etc/init.d/cron start') != 0) return fail('Cannot start cron');
-   ctx.run(LOCKED + 'timeout 55 ' + JOB + ' >/dev/null 2>&1 &');
+   if (!running() && ctx.run('nohup flock -n ' + DIR + '/scheduler.lock /usr/bin/ucode ' + BASE + '/scheduler.uc </dev/null >/dev/null 2>&1 &') != 0)
+    return fail('Cannot start scheduler');
   } else unlink(MARKER);
-  // Drop the legacy persisted enable flag; the runtime marker disappears on reboot.
   let u = ctx.uci();
   if (u.get('e5-plugin-ipv6-fix', 'settings')) { u.delete('e5-plugin-ipv6-fix', 'settings', 'enabled'); u.commit('e5-plugin-ipv6-fix'); }
   return { ok: true };
@@ -63,7 +76,8 @@ return function(ctx) {
   'POST /refresh': () => launch('manual'),
   'POST /delete-route': req => req.body?.confirm == 'DELETE' ? launch('delete') : fail('Confirmation required', 400),
   'POST /log-clear': function(req) {
-   if (ctx.run('mkdir -p ' + DIR + ' && flock -w 2 ' + DIR + '/lock sh -c ' + "': > " + DIR + "/log.txt'") != 0) return fail('Cannot clear log while a task is running', 409);
+   if (ctx.run('mkdir -p ' + DIR + ' && timeout 3 flock ' + DIR + '/lock sh -c ' + "': > " + DIR + "/log.txt'") != 0) return fail('Cannot clear log while a task is running', 409);
+   if (length(readfile(DIR + '/log.txt') ?? '')) return fail('Log file was not cleared');
    return { ok: true };
   },
   'POST /schedule': req => type(req.body?.enabled) == 'bool' ? schedule(req.body.enabled) : fail('enabled must be boolean', 400),

@@ -49,9 +49,22 @@ let remaining = expiry(route);
 let margin = lease?.device == dev && lease.gateway == (gw ? gw[1] : null) ? int(lease.lifetime / 5) : 300;
 if (margin < 120) margin = 120;
 if (margin > 300) margin = 300;
-// Cron checks every minute; interval is an upper limit, never permission to let a lease expire.
-if (ARGV[0] == 'auto' && last?.ok && time() - last.time < interval && remaining != null && remaining > margin &&
- system('timeout 4 ping -6 -c 1 -W 3 2400:3200::1 >/dev/null 2>&1') == 0) exit(0);
+// The runtime scheduler checks every five seconds. Do not let the configured interval outlive RA.
+let elapsed = last ? time() - last.time : interval;
+let reason = !last ? 'initial' : !last.ok ? 'retry' : remaining == null ? 'missing_expiry' : remaining <= margin ? 'lease_expiring' : elapsed >= interval ? 'interval' : 'health_check';
+if (ARGV[0] == 'auto') {
+ if (last && !last.ok && elapsed < 60) exit(0);
+ if (last?.ok && elapsed < interval && remaining != null && remaining > margin) {
+  // Health probes need not run on every scheduler tick.
+  let health = readjson(DIR + '/health.json');
+  if (health && health.time <= time() && time() - health.time < 60 && health.ok) exit(0);
+  let connected = system('timeout 4 ping -6 -c 1 -W 3 2400:3200::1 >/dev/null 2>&1') == 0;
+  writefile(DIR + '/health.json', sprintf('%J\n', {ok:connected,time:time()}));
+  if (connected) exit(0);
+  reason = 'connectivity_failed';
+ }
+ log('schedule_due', sprintf('reason=%s interval=%ds elapsed=%ds remaining=%s', reason, interval, elapsed, remaining == null ? 'none' : '' + remaining));
+}
 let addresses = sh('ip -6 addr show dev ' + quote(dev) + ' scope global');
 if (!length(addresses)) finish(false, 'skipped', 'No global IPv6 address on cellular WAN');
 let rdisc6 = sh('if [ "$(uname -m)" = aarch64 ] && [ -x /etc/e5-infoscreen/plugins/ipv6-fix/bin/rdisc6 ]; then echo /etc/e5-infoscreen/plugins/ipv6-fix/bin/rdisc6; else command -v rdisc6; fi');

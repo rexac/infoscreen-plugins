@@ -75,9 +75,13 @@ scenario('scheduler stopped', route, {mode:'auto'}, 'idle', 0);
 let saved={ '/tmp/e5-ipv6-fix/schedule':'1', '/tmp/e5-ipv6-fix/result.json':sprintf('%J',{ok:true,time:time()}) };
 scenario('healthy lease waits for interval', replace(route,'120sec','1800sec'), {mode:'auto',stored:saved}, 'idle', 0);
 scenario('near expiry overrides one-hour interval', route, {mode:'auto',stored:saved}, 'ra_replace', 1);
-saved['/tmp/e5-ipv6-fix/result.json']=sprintf('%J',{ok:false,time:time()});
+saved['/tmp/e5-ipv6-fix/result.json']=sprintf('%J',{ok:false,time:time()-61});
 scenario('failed refresh retried next cron tick', replace(route,'120sec','1800sec'), {mode:'auto',stored:saved}, 'ra_replace', 1);
 
 scenario('changed upstream lifetime is honored', route, {reply:replace(reply,'3600','1800'),lifetime:1800}, 'ra_replace', 1);
 saved['/tmp/e5-ipv6-fix/result.json']=sprintf('%J',{ok:true,time:time()});
+delete saved['/tmp/e5-ipv6-fix/health.json'];
 scenario('lost connectivity overrides interval', replace(route,'120sec','1800sec'), {mode:'auto',stored:saved,ping_fail:true}, 'connectivity_failed', 1);
+
+saved['/tmp/e5-ipv6-fix/result.json']=sprintf('%J',{ok:false,time:time()});
+scenario('failed task retry is throttled', route, {mode:'auto',stored:saved}, 'idle', 0);
