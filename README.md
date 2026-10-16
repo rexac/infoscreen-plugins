@@ -52,9 +52,13 @@ stores the counts; previews do not send production events. Statistics failures n
 * **manifest**：`id` 与目录名相同（小写字母、数字、`-`、`_`，最多 32 个字符）；`api_version`
   是屏幕支持的（目前 2，兼容 1）；`version` 是点分数字；`name` 和 `description` 都要有 `zh` 和 `en`；
   `entry` 是应用里的文件；设置项的 `uci` 用 `e5-plugin-<id>.<section>.<option>`。
+  可选 `short_name: {zh,en}` 用于打开应用时的宿主标题栏；列表名称仍用 `name`，旧宿主忽略此字段。
   输入法应用可设置 `input_method: true`，通过 API 2 的 `e5.input()` 向宿主当前输入框提交文字。
 * **文件**：只允许 html、js、css、json、uc、svg、txt、md 和常见图片、woff2；没有隐藏文件、
   没有链接；整个应用不超过 2 MB。
+  `ipv6-fix/bin/rdisc6`（aarch64 静态程序）及其官方源码包是明确例外：
+  `tools/check.py` 固定校验各自 SHA-256，程序必须为 0755，打包保留可执行权限。
+  更换二进制须同步审阅并更新校验值、来源和许可证材料；其他 ELF/压缩包仍不允许。
 * **风格**：UTF-8，LF 换行，文件以换行结尾，行尾没有空格。
 * **安全**：前端不加载别的主机的脚本和样式，不直接请求外网（需要时通过后台），不用
   `eval`、`new Function`、`document.write`、带字符串的 `setTimeout`。
@@ -103,3 +107,9 @@ SIM2 下行与来电提醒已实测；SIM2 麦克风上行、来电接听音频�
 选卡不会切换上网卡；已有通话时不会自动挂机或重拨。
 
 设备适配中的电话界面与共享传输改动已合入 `plugins/phone`，来源和依赖见 [迁移说明](docs/DEVICE-INTEGRATION.md)。
+
+## IPv6 路由修复
+
+`plugins/ipv6-fix/` 将 Android 版本的 RA 路由续期改写为 OpenWrt 信息屏插件，提供手动修复、
+定时保活和日志。1.1 内置已实测的 aarch64 静态 `rdisc6` 及其上游源码与许可。
+自动修复默认关闭；依赖、策略和卸载说明见 [插件说明](plugins/ipv6-fix/README.md)。

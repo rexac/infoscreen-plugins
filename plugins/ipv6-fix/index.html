@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IPv6 路由修复</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;padding:10px;background:#0b0e13;color:#e8ecf2;font:14px sans-serif;line-height:1.65}h1{font-size:21px;margin:0 0 8px}h2{font-size:16px;margin:12px 0 6px}.card{padding:10px;background:#161b23;border-radius:10px}.row{margin:3px 0}.dim{color:#abb8ca}.value{color:#e8ecf2}.route{overflow-wrap:anywhere;font-size:12px}.bar{height:7px;margin:7px 0 4px;border-radius:4px;background:#343e4b;overflow:hidden}#rra-bar{height:100%;width:0;transition:width .5s;background:#4caf50}.good{color:#69ce79}.bad{color:#ff7272}.neutral{color:#b9c7d9}.actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0}button,select{padding:10px 6px;background:#1b2533;color:inherit;border:1px solid #42536c;border-radius:8px;font:inherit;min-height:42px}button:focus,select:focus{outline:2px solid #66baff}button:disabled{opacity:.5}.danger{color:#ff9494}.interval{display:flex;align-items:center;gap:10px;margin:10px 0}.interval button{flex:1;min-width:0;text-align:left;display:flex;justify-content:space-between;align-items:center}.interval button::after{content:'▾';color:#abb8ca}.picker[hidden]{display:none}.picker{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(0,0,0,.72)}.picker-panel{width:100%;max-width:360px;max-height:calc(100vh - 28px);overflow:auto;padding:12px;border:1px solid #42536c;border-radius:12px;background:#161b23;box-shadow:0 12px 36px #0008}.picker-panel h2{margin:0 0 10px}.picker-options{display:grid;gap:6px}.picker-options button{text-align:left;background:#1b2533;color:#e8ecf2}.picker-options button[aria-pressed="true"]{border-color:#66baff;background:#213b54;color:#bce0ff}.picker-options button[aria-pressed="true"]::after{content:'✓';float:right}.picker-panel>button{width:100%;margin-top:10px;background:#252e3b;color:#abb8ca}p{font-size:12px;margin:6px 0}.log-actions{display:flex;gap:8px}.log-actions button{flex:1}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 monospace;margin:6px 0}#log{height:220px;overflow:auto;background:#161b23;padding:8px;border-radius:8px}#message{color:#8dcbff;min-height:1.5em}details summary{padding:8px;cursor:pointer}details pre{max-height:220px;overflow:auto}.progress-note{font-size:11px}
+</style>
+<h1 id="title"></h1>
+<section class="card" aria-label="IPv6 status">
+ <div class="row"><span id="operator-label" class="dim"></span><span id="rra-op"></span></div>
+ <div class="row"><span id="device-label" class="dim"></span><span id="rra-iface"></span> · <span id="ping-label" class="dim"></span><span id="rra-ping"></span></div>
+ <div class="row"><span id="watch-label" class="dim"></span><span id="rra-watch"></span><span id="rra-interval"></span></div>
+ <div class="row"><span class="dim">rdisc6：</span><span id="rra-rd"></span></div>
+ <div class="row"><span id="strategy-label" class="dim"></span><span id="rra-strategy"></span></div>
+ <div class="row"><span id="route-label" class="dim"></span><div id="rra-route" class="route"></div></div>
+ <div class="row"><span id="expiry-label" class="dim"></span><span id="rra-exp" aria-live="off"></span></div>
+ <div id="rra-progress" class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div id="rra-bar"></div></div>
+ <p id="progress-note" class="dim progress-note"></p>
+ <p id="principle" class="dim"></p>
+</section>
+<p id="message" role="status"></p>
+<div class="actions">
+ <button id="refresh"></button><button id="reload"></button>
+ <button id="start"></button><button id="stop"></button>
+ <button id="delete-route" class="danger"></button>
+</div>
+<div class="interval"><span id="interval-label"></span><button id="interval" type="button" aria-labelledby="interval-label interval-value" aria-haspopup="dialog" aria-expanded="false"><span id="interval-value"></span></button></div>
+<div id="interval-picker" class="picker" hidden>
+ <section class="picker-panel" role="dialog" aria-modal="true" aria-labelledby="interval-picker-title">
+  <h2 id="interval-picker-title"></h2>
+  <div id="interval-options" class="picker-options"></div>
+  <button id="interval-cancel" type="button"></button>
+ </section>
+</div>
+<p id="runtime-note" class="dim"></p>
+<h2 id="result-title"></h2><pre id="result" role="status"></pre>
+<details><summary id="routes-title"></summary><pre id="routes"></pre></details>
+<h2 id="log-title"></h2><p id="log-hint" class="dim"></p>
+<div class="log-actions"><button id="log-refresh"></button><button id="log-clear"></button></div>
+<pre id="log" tabindex="0"></pre>
+<script src="/sdk/e5.js"></script><script src="view.js?v=1.9"></script><script src="app.js?v=1.9"></script>
+</html>

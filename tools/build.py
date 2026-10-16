@@ -9,6 +9,7 @@ The index, as e5-infoscreen's `plugin store` / `plugin get` read it:
       "description", "order", "input_method", "backend", "size", "sha256", "url" } ] }
 """
 import gzip, hashlib, html, io, json, os, shutil, sys, tarfile, time
+from check import check, NATIVE_FILES
 
 BASE = (sys.argv[1] if len(sys.argv) > 1 else 'https://enceka.github.io/infoscreen-plugins').rstrip('/')
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -30,7 +31,10 @@ def package(d, id, version):
             for n in sorted(files):
                 p = os.path.join(root, n)
                 ti = tarfile.TarInfo(f'{arc_root}/{n}')
-                ti.size = os.path.getsize(p); ti.mode = 0o644; ti.mtime = MTIME
+                ti.size = os.path.getsize(p)
+                rel = os.path.relpath(p, d).replace(os.sep, '/')
+                ti.mode = 0o755 if (id, rel) in NATIVE_FILES else 0o644
+                ti.mtime = MTIME
                 ti.uid = ti.gid = 0; ti.uname = ti.gname = 'root'
                 with open(p, 'rb') as f:
                     t.addfile(ti, f)
@@ -41,6 +45,13 @@ def package(d, id, version):
 
 
 def main():
+    # Do not package changed native payloads without passing the same review gate as CI.
+    for rid in sorted(os.listdir(SRC)):
+        d = os.path.join(SRC, rid)
+        if os.path.isdir(d):
+            errors, _ = check(d)
+            if errors:
+                raise SystemExit(rid + ': ' + '; '.join(errors))
     shutil.rmtree(OUT, ignore_errors=True)
     os.makedirs(os.path.join(OUT, 'packages'))
     shutil.copytree(os.path.join(TOP, 'site'), OUT, dirs_exist_ok=True)

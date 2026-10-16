@@ -5,7 +5,7 @@ reviewer.  The rules are in README.md.
 
     tools/check.py [plugins/<id> ...]      (all of plugins/ without arguments)
 """
-import json, os, re, sys
+import hashlib, json, os, re, sys
 
 API_VERSION = 2                      # the newest the screen has (e5-infoscreen docs/API.md)
 MAX_BYTES = 2 * 1024 * 1024          # per app, all files (the screen takes 20 MB; the store wants small ones)
@@ -13,6 +13,13 @@ ID = re.compile(r'^[a-z0-9][a-z0-9_-]{0,31}$')
 VERSION = re.compile(r'^\d+(\.\d+){0,3}$')
 TEXT = {'.html', '.js', '.css', '.json', '.uc', '.svg', '.txt', '.md'}
 BINARY = {'.png', '.jpg', '.jpeg', '.webp', '.gif', '.woff2', '.ico'}
+# Explicitly reviewed exceptions. Updating a payload requires reviewing and pinning its new digest.
+NATIVE_FILES = {
+    ('ipv6-fix', 'bin/rdisc6'): 'db1c09c77f9aa98d92fc0bc95070019d6da0698bf44666726c1d46eec0125838',
+}
+SOURCE_ARCHIVES = {
+    ('ipv6-fix', 'sources/ndisc6-1.0.8.tar.bz2'): '1f2fb2dc1172770aa5a09d39738a44d8b753cc5e2e25e306ca78682f9fea0b4f',
+}
 SETTING_TYPES = {'toggle', 'choice', 'number'}
 # the frontend runs in the screen's own page origin: nothing from elsewhere, no code from strings
 FRONT_BAD = [
@@ -65,6 +72,8 @@ def check(d):
         errs.append('manifest: version must be dotted numbers, e.g. "1.0" -- the screen compares them')
     lbl_ok(m.get('name'), 'name', errs)
     lbl_ok(m.get('description'), 'description', errs)
+    if 'short_name' in m:
+        lbl_ok(m['short_name'], 'short_name', errs)
     entry = m.get('entry', 'index.html')
     if not isinstance(entry, str) or entry.startswith('/') or '..' in entry.split('/') \
             or not os.path.isfile(os.path.join(d, entry)):
@@ -81,7 +90,7 @@ def check(d):
         if not re.match(rf'^e5-plugin-{re.escape(rid)}\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+$', u):
             errs.append(f'{where}: uci must be e5-plugin-{rid}.<section>.<option>, not {u!r}')
         lbl_ok(s.get('label'), f'settings[{i}].label', errs)
-    unknown = set(m) - {'id', 'api_version', 'version', 'name', 'description', 'entry', 'order', 'settings', 'notifications', 'input_method'}
+    unknown = set(m) - {'id', 'api_version', 'version', 'name', 'short_name', 'description', 'entry', 'order', 'settings', 'notifications', 'input_method'}
     if unknown:
         notes.append(f'manifest: fields the screen does not use: {", ".join(sorted(unknown))}')
 
@@ -100,13 +109,30 @@ def check(d):
             if os.path.islink(p):
                 continue
             total += os.path.getsize(p)
+            key = (rid, rel.replace(os.sep, '/'))
+            if key in NATIVE_FILES or key in SOURCE_ARCHIVES:
+                with open(p, 'rb') as payload:
+                    raw = payload.read()
+                expected = NATIVE_FILES.get(key) or SOURCE_ARCHIVES[key]
+                if hashlib.sha256(raw).hexdigest() != expected:
+                    errs.append(f'{rel}: SHA-256 does not match the reviewed payload')
+                if key in NATIVE_FILES:
+                    if len(raw) < 64 or raw[:6] != b'\x7fELF\x02\x01' or raw[18:20] != b'\xb7\x00':
+                        errs.append(f'{rel}: expected an ELF64 little-endian AArch64 executable')
+                    if os.stat(p).st_mode & 0o777 != 0o755:
+                        errs.append(f'{rel}: executable mode must be 0755')
+                    notes.append(f'{rel}: reviewed native executable (runs as root), SHA-256 pinned')
+                else:
+                    notes.append(f'{rel}: reviewed upstream source archive, SHA-256 pinned')
+                continue
             ext = os.path.splitext(n)[1].lower()
             if ext not in TEXT | BINARY and n != 'LICENSE':
                 errs.append(f'{rel}: file type {ext or "(none)"} is not allowed')
                 continue
             if ext in BINARY:
                 continue
-            raw = open(p, 'rb').read()
+            with open(p, 'rb') as payload:
+                raw = payload.read()
             try:
                 text = raw.decode('utf-8')
             except UnicodeDecodeError:

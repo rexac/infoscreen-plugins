@@ -1,0 +1,18 @@
+{
+  "component": "rdisc6",
+  "version": "1.0.8",
+  "upstream": "https://www.remlab.net/ndisc6/",
+  "source_url": "https://www.remlab.net/files/ndisc6/ndisc6-1.0.8.tar.bz2",
+  "source_file": "sources/ndisc6-1.0.8.tar.bz2",
+  "source_sha256": "1f2fb2dc1172770aa5a09d39738a44d8b753cc5e2e25e306ca78682f9fea0b4f",
+  "binary": "bin/rdisc6",
+  "binary_sha256": "db1c09c77f9aa98d92fc0bc95070019d6da0698bf44666726c1d46eec0125838",
+  "binary_origin": "User-provided ipv6-fix/依赖/rdisc6, copied unchanged",
+  "architecture": "aarch64-linux-musl",
+  "linkage": "static-pie",
+  "configure": "./configure --host=aarch64-linux-musl CC=aarch64-linux-musl-gcc LDFLAGS=-static",
+  "copyright": "Copyright (C) 2004-2007 Remi Denis-Courmont",
+  "license": "GPL-2.0 OR GPL-3.0",
+  "license_file": "COPYING.ndisc6.txt",
+  "verified_on": "E5 OpenWrt aarch64, 2026-10-16"
+}

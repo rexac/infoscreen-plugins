@@ -1,0 +1,13 @@
+{
+  "id": "ipv6-fix",
+  "api_version": 2,
+  "version": "1.9",
+  "name": {"zh": "IPv6 路由修复", "en": "IPv6 route repair"},
+  "short_name": {"zh": "路由修复", "en": "Route repair"},
+  "description": {"zh": "蜂窝 RA 路由续期、定时保活与诊断", "en": "Cellular RA route renewal, scheduling and diagnostics"},
+  "entry": "index.html",
+  "order": 40,
+  "settings": [
+    {"id": "interval", "type": "number", "uci": "e5-plugin-ipv6-fix.settings.interval", "default": "3600", "min": 60, "max": 43200, "step": 60, "unit": "s", "label": {"zh": "自动修复间隔", "en": "Automatic repair interval"}}
+  ]
+}
