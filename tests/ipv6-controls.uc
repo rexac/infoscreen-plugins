@@ -37,8 +37,8 @@ files['/etc/crontabs/root']='15 4 * * * echo unrelated\n* * * * * obsolete # e5-
 assert(routes['POST /schedule']({body:{enabled:true}}).ok,'scheduler start failed');
 assert(index(files['/etc/crontabs/root'],'15 4 * * * echo unrelated')>=0,'unrelated cron entry lost');
 assert(index(files['/etc/crontabs/root'],'obsolete')<0,'legacy cron not replaced');
-assert(index(files['/etc/crontabs/root'],'*/5 * * * * flock')>=0,'five minute cron missing');
-assert(files[prefix+'/schedule']!=null,'runtime marker missing');
+assert(index(files['/etc/crontabs/root'],'*/5 * * * * mkdir -p')>=0,'five minute cron missing');
+assert(values.enabled=='1','enable state not persisted');
 assert(routes['GET /status']({}).enabled,'running scheduler not shown');
 files[prefix+'/lease.json']=sprintf('%J',{device:'sipa_eth0',gateway:'fe80::1',lifetime:3600,time:time()});
 assert(routes['POST /interval']({body:{interval:1800}}).ok,'interval change rejected');
@@ -51,7 +51,13 @@ assert(st.interval==21600 && st.effective_interval==1800,'short RA did not cap l
 let original=files['/etc/crontabs/root'];
 assert(routes['POST /schedule']({body:{enabled:true}}).ok,'duplicate start failed');
 assert(files['/etc/crontabs/root']==original,'duplicate start changed cron');
+// Simulate reboot clearing all temporary runtime files while preserving UCI and cron.
+for (let path in [prefix+'/schedule',prefix+'/cron.json',prefix+'/lease.json',prefix+'/result.json']) delete files[path];
+let rebootStatus=routes['GET /status']({});
+assert(rebootStatus.enabled && rebootStatus.cron_expression=='*/30 * * * *','schedule lost after reboot');
+assert(rebootStatus.next_refresh_in>0 && rebootStatus.next_refresh_in<=1800,'post-reboot countdown missing');
 assert(routes['POST /schedule']({body:{enabled:false}}).ok,'scheduler stop failed');
+assert(values.enabled=='0','disabled state not persisted');
 assert(files[prefix+'/schedule']==null && index(files['/etc/crontabs/root'],'# e5-ipv6-fix')<0,'stop left scheduler enabled');
 files[prefix+'/schedule']='1\n';
 assert(!routes['GET /status']({}).enabled,'marker alone incorrectly reports running');

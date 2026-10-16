@@ -70,7 +70,7 @@ function paint() {
  $('rra-strategy').textContent = state?.strategy ? describe(state.strategy.strategy, state.strategy.message) + ' · ' + timestamp(state.strategy.time) : t('暂无（尚未刷新过）', 'None yet');
  $('rra-route').textContent = state?.route || (state?.route_count > 1 ? t('多条候选路由，请查看全部路由', 'Multiple candidates; see all routes') : t('未找到默认路由（可能已到期被删）', 'No default route found (possibly expired)'));
  $('principle').textContent = t('按真实 RA 有效期续期；临近到期或 IPv6 不通时提前刷新，不人为延长有效期。', 'Renews using the advertised RA lifetime, earlier near expiry or on connectivity loss.');
- $('runtime-note').textContent = t('使用 OpenWrt 计划任务，按整点时间执行；RA 有效期较短时缩短实际间隔。关闭页面继续运行，重启后需重新启动调度。', 'Uses OpenWrt cron wall-clock slots. Short RA lifetimes shorten the actual interval. Continues with this page closed; enable again after reboot.') + (state?.enabled && state.cron_expression ? ' [' + state.cron_expression + ']' : '');
+ $('runtime-note').textContent = t('使用 OpenWrt 计划任务，按整点时间执行；RA 有效期较短时缩短实际间隔。关闭页面或重启后均继续运行；点击停止会保存停用状态。', 'Uses OpenWrt cron wall-clock slots. Short RA lifetimes shorten the actual interval. Continues with this page closed and after reboot; Stop saves the disabled state.') + (state?.enabled && state.cron_expression ? ' [' + state.cron_expression + ']' : '');
  $('log-hint').textContent = t('只显示最近 40 行；旧失败不代表当前故障。', 'Last 40 lines; past failures do not indicate a current fault.');
  $('result').textContent = state?.result ? (state.result.ok ? '✓ ' : '⚠ ') + describe(state.result.strategy, state.result.message) + '\n' + timestamp(state.result.time) : t('尚未运行', 'Not run yet');
  $('routes').textContent = state?.routes || '';

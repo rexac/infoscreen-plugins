@@ -8,7 +8,7 @@ function readjson(path) { try { return json(readfile(path) ?? 'null'); } catch(e
 let u = cursor(), last = readjson(DIR + '/result.json');
 let interval = int(u.get('e5-plugin-ipv6-fix', 'settings', 'interval') ?? '3600');
 if (interval < 60 || interval > 43200) interval = 3600;
-if (index(['auto', 'cron'], ARGV[0]) >= 0 && readfile(DIR + '/schedule') == null) exit(0);
+if (index(['auto', 'cron'], ARGV[0]) >= 0 && u.get('e5-plugin-ipv6-fix', 'settings', 'enabled') != '1') exit(0);
 function log(strategy, message) {
  let previous = readfile(DIR + '/log.txt') ?? '';
  writefile(DIR + '/log.txt', substr(previous, -60000) + sprintf('%d %s: %s\n', time(), strategy, message));
@@ -19,7 +19,7 @@ function finish(ok, strategy, message) {
   if (!connected) { ok = false; strategy = 'connectivity_failed'; message = 'Route updated but IPv6 connectivity check failed'; }
  }
  // Recalculate the visible cron interval when the advertised lifetime changes.
- if (ok && ARGV[0] != 'delete' && readfile(DIR + '/schedule') != null) {
+ if (ok && ARGV[0] != 'delete' && u.get('e5-plugin-ipv6-fix', 'settings', 'enabled') == '1') {
   let lease = readjson(DIR + '/lease.json');
   let cron = loadfile('/etc/e5-infoscreen/plugins/ipv6-fix/cron.uc', {raw_mode:true})();
   if (!cron.configure(true, interval, lease?.lifetime)) {

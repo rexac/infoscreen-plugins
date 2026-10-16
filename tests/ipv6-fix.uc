@@ -12,7 +12,7 @@ let reply = '\nRouter preference : medium\nRouter lifetime : 3600 (0x00000e10) s
 function scenario(name, before, options, expected, writes) {
  let commands = [], stored = options.stored ?? {}, current = before, requests = 0;
  let env = {
-  ARGV: [options.mode ?? 'manual'], cursor: () => ({ get: () => '3600' }),
+  ARGV: [options.mode ?? 'manual'], cursor: () => ({ get: (config,section,option) => option == 'enabled' ? (options.enabled ? '1' : '0') : '3600' }),
   readfile: path => stored[path], writefile: (path, data) => { stored[path] = data; return length(data); },
   sh: cmd => {
    if (index(cmd, 'LC_ALL=C timeout 10 ') == 0) {
@@ -74,7 +74,10 @@ scenario('ping failure not success', route, {ping_fail:true}, 'connectivity_fail
 scenario('explicit deletion', route, {mode:'delete'}, 'deleted', 1);
 scenario('scheduler stopped', route, {mode:'cron'}, 'idle', 0);
 let saved={ '/tmp/e5-ipv6-fix/schedule':'1', '/tmp/e5-ipv6-fix/result.json':sprintf('%J',{ok:true,time:time()}) };
-scenario('cron slot runs even after recent manual refresh', replace(route,'120sec','1800sec'), {mode:'cron',stored:saved}, 'ra_replace', 1);
-scenario('cron renews near expiry', route, {mode:'cron',stored:saved}, 'ra_replace', 1);
+scenario('cron slot runs even after recent manual refresh', replace(route,'120sec','1800sec'), {mode:'cron',stored:saved,enabled:true}, 'ra_replace', 1);
+scenario('cron renews near expiry', route, {mode:'cron',stored:saved,enabled:true}, 'ra_replace', 1);
 scenario('changed upstream lifetime is honored', route, {reply:replace(reply,'3600','1800'),lifetime:1800}, 'ra_replace', 1);
-scenario('failed connectivity is reported on scheduled refresh', route, {mode:'cron',stored:saved,ping_fail:true}, 'connectivity_failed', 1);
+scenario('failed connectivity is reported on scheduled refresh', route, {mode:'cron',stored:saved,ping_fail:true,enabled:true}, 'connectivity_failed', 1);
+
+scenario('enabled cron runs after reboot with empty tmp', route, {mode:'cron',enabled:true}, 'ra_replace', 1);
+scenario('disabled cron ignores stale runtime marker', route, {mode:'cron',stored:saved}, 'idle', 0);
