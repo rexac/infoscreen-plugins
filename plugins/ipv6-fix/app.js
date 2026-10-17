@@ -43,7 +43,7 @@ function drawLease() {
  const tone = lease.kind === 'expiring' ? 'good' : ['missing', 'expired'].includes(lease.kind) ? 'bad' : 'neutral';
  $('rra-exp').className = tone;
  $('rra-bar').style.width = lease.percent + '%';
- $('rra-bar').style.background = tone === 'good' ? '#83b8ff' : tone === 'bad' ? '#ed929c' : '#64748b';
+ $('rra-bar').style.background = tone === 'good' ? 'var(--accent)' : tone === 'bad' ? 'var(--progress-error, #ed929c)' : 'var(--muted)';
  $('rra-progress').setAttribute('aria-valuenow', String(Math.round(lease.percent)));
  $('rra-progress').setAttribute('aria-valuetext', text);
  $('progress-note').textContent = lease.kind === 'expiring' ? (state?.ra_lifetime > 0 ? t('上游 RA 有效期：', 'Advertised RA lifetime: ') + state.ra_lifetime + 's' : t('尚无对应的 RA 有效期，进度条暂不显示比例。', 'RA lifetime unknown; percentage unavailable.')) : '';
